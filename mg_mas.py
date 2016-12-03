@@ -3,13 +3,9 @@ import random
 # import tensorflow as tf
 # import math
 
+
+#TODO - idea: MidiMarkovChain with sub markov model, each per track\instrument, lengths are super level
 class MidiMarkovChain:
-    """
-    A MarkovChain class generates a markov state transition table of given order from given notes.
-    A state token is considered to be a tuple (pitch, duration in quarter notes).
-    End tuple is (None, None)
-    Includes some psuedo-likelihood function.
-    """
     EOL = None  # Universal end of line symbol
     alpha = 0.12  # Coefficient for probability smoothing
 
@@ -31,6 +27,8 @@ class MidiMarkovChain:
         self.duration_dict = dict()
         self.duration_probs = dict()
         self.duration_cdfs = dict()
+        self.note_updates = list()
+        self.duration_updates = list()  # Efficiently update only relevant keys
         self.easy_learn(music21stream)
         self.calculate_probability()
         self.calculate_cdf()
@@ -40,7 +38,7 @@ class MidiMarkovChain:
             note = random.choice(["A", "B", "C", "D", "E", "F", "G"])
             # We want a reasonable sound so we don't include uncommon octaves or accidentals
             # and we give more chances to no accidental color
-            octave = random.choice(["3", "4", "5", "6", "7"])
+            octave = random.choice(["3", "4", "5", "6"])
             accidental = random.choice(["", "#", "", "-", "", "#", "", "-", ""])
             return note + accidental + octave
         """
@@ -63,36 +61,42 @@ class MidiMarkovChain:
         gen = list(start_note)
         dur = list(start_duration)
         while len(gen) < length and prev_note != MidiMarkovChain.EOL:
-            explore = random.random()
-            if explore > 0.9:  # Random note (note - only one is produced, regardless of markov chain order
-                if explore > 0.95:  # Random chord
-                    chord = random.choice([2, 3, 4])
-                    note = tuple([random_note() for _ in range(chord)])
-                    print("Randomly generated chord {}".format(note))
-                else:
-                    note = random_note()
-                    print("Randomly generated note {}".format(note))
-                # We want a reasonably long note, so anywhere between 1/16 to 1/2 would be okay.
-                # a duration of 2 means 2 quarter lengths, i.e. 1/2.
-                duration = random.choice([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2])
-                gen.append(note)
-                dur.append(duration)
-            else:
-                rnd = random.random()  # Random number from 0 to 1
-                cdf_note, cdf_dur = self.note_cdfs[prev_note], self.duration_cdfs[prev_duration]
-                cp_note, cp_dur = cdf_note[0][1], cdf_dur[0][1]
-                i = 0
-                # Go through the cdf_note until the cumulative probability is higher than the random number 'rnd'.
-                while cp_note < rnd:
-                    i += 1
-                    cp_note = cdf_note[i][1]
-                gen.append(cdf_note[i][0][-1])  # Add only new addition to gen (no overlap)
+            # explore = random.random()
+            # if explore > 1.1:  # Random note (note - only one is produced, regardless of markov chain order
+            #     if explore > 1.99:  # Random chord
+            #         chord = random.choice([2, 3, 4])
+            #         note = tuple([random_note() for _ in range(chord)])
+            #         print("Randomly generated chord {}".format(note))
+            #     else:
+            #         note = random_note()
+            #         print("Randomly generated note {}".format(note))
+            #     # We want a reasonably long note, so anywhere between 1/16 to 1/2 would be okay.
+            #     # a duration of 2 means 2 quarter lengths, i.e. 1/2.
+            #     duration = random.choice([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2])
+            #     gen.append(note)
+            #     dur.append(duration)
+            # else:
+            rnd = random.random()  # Random number from 0 to 1
+            cdf_note, cdf_dur = self.note_cdfs[prev_note], self.duration_cdfs[prev_duration]
+            cp_note, cp_dur = cdf_note[0][1], cdf_dur[0][1]
+            i = 0
+            # Go through the cdf_note until the cumulative probability is higher than the random number 'rnd'.
+            while cp_note < rnd:
+                i += 1
+                cp_note = cdf_note[i][1]
+            if cdf_note[i][0] == MidiMarkovChain.EOL:
+                return gen, dur  # EOL reached
+            gen.append(cdf_note[i][0][-1])  # Add only new addition to gen (no overlap)
+            if cdf_note[i][0] in self.note_cdfs.keys():
                 prev_note = cdf_note[i][0]  # Update previous state
-                i = 0
-                while cp_dur < rnd:
-                    i += 1
-                    cp_dur = cdf_dur[i][1]
-                dur.append(cdf_dur[i][0][-1])
+            i = 0
+            while cp_dur < rnd:
+                i += 1
+                cp_dur = cdf_dur[i][1]
+            if cdf_dur[i][0] == MidiMarkovChain.EOL:
+                return gen, dur  # EOL reached
+            dur.append(cdf_dur[i][0][-1])
+            if cdf_dur[i][0] in self.duration_cdfs.keys():
                 prev_duration = cdf_dur[i][0]
         return gen, dur
 
@@ -130,19 +134,31 @@ class MidiMarkovChain:
         return score
 
     def calculate_probability(self):
-        def calc_prob(dictionary, probs):
-            for word, sub_dict in dictionary.items():  # Calculate probabilities for each state
-                if word not in probs:
-                    probs[word] = dict()
-                total = sum(sub_dict.values())  # Sum over all items for this state
-                diff_values = len(set(dictionary.keys()))  # Used to smooth the probabilities
-                total += diff_values * MidiMarkovChain.alpha  # ditto
+        def calc_prob(dictionary, probs, updates):
+            diff_values = len(set(dictionary.keys()))
+            for key in updates:
+                if key not in probs:
+                    probs[key] = dict()
+                sub_dict = dictionary[key]
+                total = sum(sub_dict.values()) + diff_values * MidiMarkovChain.alpha
                 for w, c in sub_dict.items():
-                    probs[word][w] = (float(c) + MidiMarkovChain.alpha) / total  # Transform count to probability
+                    probs[key][w] = (float(c) + MidiMarkovChain.alpha) / total
+            # Original:
+            # diff_values = len(set(dictionary.keys()))  # Used to smooth the probabilities
+            # for word, sub_dict in dictionary.items():  # Calculate probabilities for each state
+            #     if word not in probs:
+            #         probs[word] = dict()
+            #     total = sum(sub_dict.values())  # Sum over all items for this state
+            #     total += diff_values * MidiMarkovChain.alpha  # ditto
+            #     for w, c in sub_dict.items():
+            #         probs[word][w] = (float(c) + MidiMarkovChain.alpha) / total  # Transform count to probability
+
         self.note_probs.clear()
-        calc_prob(self.note_dict, self.note_probs)
+        calc_prob(self.note_dict, self.note_probs, self.note_updates)
+        print("Done calculating notes probabilities...")
         self.duration_probs.clear()
-        calc_prob(self.duration_dict, self.duration_probs)
+        calc_prob(self.duration_dict, self.duration_probs, self.duration_updates)
+        print("Done calculating durations probabilities...")
 
     def calculate_cdf(self):
         def calc_cdf(dictionary, cdfs):
@@ -160,8 +176,10 @@ class MidiMarkovChain:
         # Create CDFs
         self.note_cdfs.clear()
         calc_cdf(self.note_probs, self.note_cdfs)
+        print("Done calculating notes cdfs...")
         self.duration_cdfs.clear()
         calc_cdf(self.duration_probs, self.duration_cdfs)
+        print("Done calculating durations cdfs...")
 
     def generate_midi(self, length=40, start_note=None, start_duration=None):
         notes, durs = self.generate(length, start_note, start_duration)
@@ -176,7 +194,10 @@ class MidiMarkovChain:
         """
         Learns a given stream by formatting it as needed.
         """
-        self.learn(list(stream.sorted.flat.getElementsByClass(["Note", "Chord"])))  # Optional choose note/chord
+        data = list(stream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
+        self.learn(data)  # Optional choose note/chord
+        # TODO - And learn backwords?
+        self.learn(reversed(data))
 
     def learn(self, part, update=False, log=False):
         """
@@ -186,13 +207,15 @@ class MidiMarkovChain:
         :param log:
         :return:
         """
-        def update_dict(dictionary, cur_state, next_state):
+        def update_dict(dictionary, updates, cur_state, next_state):
             if cur_state not in dictionary:
                 dictionary[cur_state] = dict()
             if next_state not in dictionary[cur_state]:
                 dictionary[cur_state][next_state] = 1
             else:
                 dictionary[cur_state][next_state] += 1
+            if cur_state not in updates:
+                updates.append(cur_state)
 
         def notes_duration_tuples(notes_list):
             notes = list()
@@ -208,10 +231,10 @@ class MidiMarkovChain:
         for i in range(len(part) - self.order):
             cur_note_state, cur_dur_state = notes_duration_tuples(part[i:i + self.order])
             next_note_state, next_dur_state = notes_duration_tuples(part[i + 1:i + self.order + 1])
-            update_dict(self.note_dict, cur_note_state, next_note_state)
-            update_dict(self.duration_dict, cur_dur_state, next_dur_state)
+            update_dict(self.note_dict, self.note_updates, cur_note_state, next_note_state)
+            update_dict(self.duration_dict, self.duration_updates, cur_dur_state, next_dur_state)
         if len(part):
-            update_dict(self.note_dict, cur_note_state, MidiMarkovChain.EOL)  # Add EOL after each part
+            update_dict(self.note_dict, self.note_updates, cur_note_state, MidiMarkovChain.EOL)  # Add EOL after each part
             # We do not add to duration because we want to be able to draw as much as needed from it
 
         if update:
@@ -230,14 +253,18 @@ class MidiMarkovChain:
             return chordNote.nameWithOctave, chordNote.duration.quarterLength
         elif chordNote.isChord:
             return tuple([note.nameWithOctave for note in chordNote]), chordNote.duration.quarterLength
+        elif chordNote.isRest:
+            return "Rest", chordNote.duration.quarterLength
         else:
             return MidiMarkovChain.EOL
 
     @staticmethod
     def toNote(note, duration):
-        # Bad programming behaviour here, open for future ideas
+        # TODO Bad programming behaviour here, open for future ideas
         if isinstance(note, tuple):  # Chord!
             n = music21.chord.Chord(note)
+        elif note == "Rest":  # Rest!
+            n = music21.note.Rest()
         else:  # Note!
             n = music21.note.Note(note)
         n.duration.quarterLength = duration
@@ -246,8 +273,12 @@ class MidiMarkovChain:
     @staticmethod
     def toStream(notesAndChords):
         stream = music21.stream.Stream()
+        piano = music21.stream.Part()
+
+        piano.insert(music21.instrument.Flute())
         for note in notesAndChords:
-            stream.append(note)
+            piano.append(note)
+        stream.append(piano)
         stream.show('midi')  # TODO - delete this, just for debugging purposes. Return the actual string.
         input("wait while midi loads...")
         return stream
@@ -279,15 +310,22 @@ class MidiMarkovChain:
 #     probabilities.append(tf.nn.softmax(logits))
 #     loss += loss_function(probabilities, target_words)
 
-filename = "Beethoven5.mid"
+#filename = "Beethoven5.mid"
 # We will keep 2 markov chains, one for pitch one for duration
-mc = MidiMarkovChain(music21.midi.translate.midiFilePathToStream(filename), order=6)
-print("Learned beethoven")
-mc.easy_learn(music21.midi.translate.midiFilePathToStream("chno0902.mid"))
-print("Learned nocturne")
-mc.easy_learn(music21.midi.translate.midiFilePathToStream("Israel.mid"))
-print("Learned Israel Anthem")
+# mc = MidiMarkovChain(music21.midi.translate.midiFilePathToStream(filename), order=6)
+# print("Learned beethoven")
+# mc.easy_learn(music21.midi.translate.midiFilePathToStream("chno0902.mid"))
+# print("Learned nocturne")
+# mc.easy_learn(music21.midi.translate.midiFilePathToStream("Israel.mid"))
+# print("Learned Israel Anthem")
+bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
+mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
+for i in range(1, int(len(bachs)/4)):  # 100 samples should be enough for now (studying both reverse and normal!)
+    print("Learning bach #" + str(i + 1))
+    mc.easy_learn(music21.corpus.parse(bachs[i]))
+print("Calculating probabilities...")
 mc.calculate_probability()
+print("Deriving CDF...")
 mc.calculate_cdf()
 print("Updated probs and cdfs")
 x = input("end? [y to exit, number for length of music]")
@@ -295,7 +333,7 @@ while x != "y":
     if str.isdigit(x):
         x = int(x)
     else:
-        x = 30
+        x = 50
     mc.generate_midi(length=x)
     x = input("end? [y to exit, number for length of music]")
 
