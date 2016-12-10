@@ -1,5 +1,6 @@
 import music21
 import random
+import datetime
 # import tensorflow as tf
 # import math
 
@@ -29,6 +30,7 @@ class MidiMarkovChain:
         self.duration_cdfs = dict()
         self.note_updates = list()
         self.duration_updates = list()  # Efficiently update only relevant keys
+
         self.easy_learn(music21stream)
         self.calculate_probability()
         self.calculate_cdf()
@@ -164,7 +166,7 @@ class MidiMarkovChain:
         def calc_cdf(dictionary, cdfs):
             for pred, succ_probs in dictionary.items():
                 items = succ_probs.items()
-                # Sort the list by the second index in each item and reverse it from highest to lowest.
+                # Sort the list by the second index in each item and reverse it from highest to 
                 sorted_items = sorted(items, key=lambda x: x[1], reverse=True)
                 cdf = []
                 cumulative_sum = 0.0
@@ -176,27 +178,82 @@ class MidiMarkovChain:
         # Create CDFs
         self.note_cdfs.clear()
         calc_cdf(self.note_probs, self.note_cdfs)
+
+        # print("note note_probs")
+        # print(self.note_probs)
+        # print("note_cdfs")
+        # print(self.note_cdfs)
+        
+
         print("Done calculating notes cdfs...")
         self.duration_cdfs.clear()
         calc_cdf(self.duration_probs, self.duration_cdfs)
         print("Done calculating durations cdfs...")
 
     def generate_midi(self, length=40, start_note=None, start_duration=None):
-        notes, durs = self.generate(length, start_note, start_duration)
-        notesAndChords = list()
-        for n, d in zip(notes, durs):
-            note = MidiMarkovChain.toNote(n, d)
-            notesAndChords.append(note)
-        print(notesAndChords)
-        return MidiMarkovChain.toStream(notesAndChords)
+       
+
+        # so, what?
+        # intro, part1, part2, part1, part2, part2, outro
+        lengths = [20, 8, 8, 4]
+        pieces = list()
+        for i in lengths:
+            notes, durs = self.generate(i, start_note, start_duration)
+            notesAndChords = list()
+            for n, d in zip(notes, durs):
+                note = MidiMarkovChain.toNote(n, d)
+                notesAndChords.append(note)
+            pieces.append(notesAndChords)
+
+       
+
+        instruments = [
+            music21.instrument.Flute(), 
+            music21.instrument.Bass(), 
+            music21.instrument.Piano(), 
+            music21.instrument.Trumpet()
+        ]
+
+
+        score = music21.stream.Score()
+
+        for instrument in instruments:
+            part = music21.stream.Part(id=str(instrument))
+            part.append(self.get_part(notes=pieces[0], name="intro", instrument=instrument))
+            #part.append(self.get_part(notes=pieces[1], name="chorus", instrument=instrument))
+            #part.append(self.get_part(notes=pieces[2], name="refrain", instrument=instrument))
+            #part.append(self.get_part(notes=pieces[3], name="outro", instrument=instrument))
+            score.insert(0, part)
+
+       
+
+        
+        fn = 'export-' + str(datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")) + '.mid'
+        score.write('midi', fp=fn)
+
+
+       
+        #return MidiMarkovChain.toStream(notesAndChords)1
+        return score
+
+    def get_part(self, notes=None, instrument=music21.instrument.Flute(), name=""):
+        part = music21.stream.Part()
+        part.insert(instrument)
+        part.id = name
+        for note in notes:
+            part.append(note)
+        return part
+
 
     def easy_learn(self, stream):
         """
         Learns a given stream by formatting it as needed.
         """
         data = list(stream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
+
+        # print(data)
         self.learn(data)  # Optional choose note/chord
-        # TODO - And learn backwords?
+        # TODO learn backwords!
         self.learn(reversed(data))
 
     def learn(self, part, update=False, log=False):
@@ -276,11 +333,16 @@ class MidiMarkovChain:
         piano = music21.stream.Part()
 
         piano.insert(music21.instrument.Flute())
+
+
         for note in notesAndChords:
             piano.append(note)
         stream.append(piano)
-        stream.show('midi')  # TODO - delete this, just for debugging purposes. Return the actual string.
-        input("wait while midi loads...")
+
+        fn = 'export-' + str(datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")) + '.mid'
+        stream.write('midi', fp=fn)
+        # stream.show('midi')  # TODO - delete this, just for debugging purposes. Return the actual string.
+        input("midi saved.")
         return stream
 
 
@@ -318,11 +380,16 @@ class MidiMarkovChain:
 # print("Learned nocturne")
 # mc.easy_learn(music21.midi.translate.midiFilePathToStream("Israel.mid"))
 # print("Learned Israel Anthem")
+
+
 bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
+print("there are " + str(len(bachs)))
 mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
-for i in range(1, int(len(bachs)/4)):  # 100 samples should be enough for now (studying both reverse and normal!)
+
+for i in range(1, int(len(bachs)/100)):  # 100 samples should be enough for now (studying both reverse and normal!)
     print("Learning bach #" + str(i + 1))
     mc.easy_learn(music21.corpus.parse(bachs[i]))
+
 print("Calculating probabilities...")
 mc.calculate_probability()
 print("Deriving CDF...")
