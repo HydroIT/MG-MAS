@@ -18,18 +18,19 @@ EOS = tuple([-1] * ELEMENT_LENGTH)  # End of Song symbol
 def midi_values(m21obj):
     result = list()
     if m21obj.isNote:
-        result.append(m21obj.pitch.midi)
+        # +1 to convert to 1-128 (instead of 0-127), divide by 128 to get values in range 0-1
+        result.append((m21obj.pitch.midi + 1) / 128.0)
     elif m21obj.isChord:
-        result = [p.midi for p in m21obj.pitches]
+        result = [(p.midi + 1) / 128.0 for p in m21obj.pitches]
         if len(result) >= ELEMENT_LENGTH:
-            result = result[0:ELEMENT_LENGTH]
+            result = result[:ELEMENT_LENGTH]
     elif m21obj.isRest:
         result = [0] * ELEMENT_LENGTH
     else:
         return EOS
     while len(result) < ELEMENT_LENGTH:
         result.append(0)  # Pad with 0s
-    result[-1] = m21obj.duration.quarterLength  # Last element is duration
+    result[-1] = m21obj.duration.quarterLength / 4.0  # Last element is duration, dont expect more than 4 quarterLengths
     return tuple(result)
 
 # input setup
@@ -105,11 +106,11 @@ model.add(LSTM(hidden_dim))
 model.add(Dropout(0.1))
 # Final layer, reduce to tag-one-hot-encoding and softmax over it
 model.add(Dense(Y.shape[1], activation='softmax'))
-# Compile with categorical cross-entropy loss and ada-delta optimizer
-model.compile(loss='categorical_crossentropy', optimizer='adadelta')
+# Compile with MSE loss and ada-delta optimizer
+model.compile(loss='mse', optimizer='adadelta')
 
 # Some weights to initialize
-#filename = 'weights-improvement-84-1.2196.hdf5'
+filename = 'weights-duration-16-0.6360.hdf5'
 #model.load_weights(filename)
 # Fit the data (takes a while!) and saves the best weights to the files
 model.fit(X, Y, nb_epoch=100, batch_size=batch_size, callbacks=callbacks_list)
@@ -121,9 +122,9 @@ pattern = X_train[start]
 for i in range(1000):
     x = np.array(pattern, dtype='float32')  # Reshape pattern to match network setup
     x = np.reshape(x, (1, timesteps, element_size))
-    prediction = np.argmax(model.predict(x, verbose=0))  # Predict
+    prediction = model.predict(x, verbose=0).tolist()  # Predict
     print("Predicted {}".format(prediction))  # Verbose...
-    pattern.append(prediction)  # Add to pattern
+    pattern.append(tuple(prediction[0]))  # Add to pattern
     pattern = pattern[1:len(pattern)]  # Trim first note in pattern
 
 # Code to convert the pattern to midi file and play it
@@ -135,7 +136,22 @@ stream = music21.stream.Stream()
 piano = music21.stream.Part()
 piano.insert(music21.instrument.Piano())
 for m in midis:
-    piano.append(music21.note.Note(m) if m > 0 else music21.note.Rest())
+    # m is a tuple of (note, note, note, duration)
+    n1 = int(m[0] * 128 + 1)
+    n2 = int(m[1] * 128 + 1)
+    n3 = int(m[2] * 128 + 1)
+    dur = round(m[3] * 4, 1)
+    data = None
+    if n1 > 0:
+        if n2 > 0:
+            data = music21.chord.Chord([n1, n2, n3])
+        else:
+            data = music21.note.Note(n1)
+    else:
+        data = music21.note.Rest()
+    data.duration.quarterLength = dur
+    print(data, data.duration.quarterLength)
+    piano.append(data)
 stream.append(piano)
 stream.show('midi')  # TODO - delete this, just for debugging purposes. Return the actual string.
 input("wait while midi loads...")
