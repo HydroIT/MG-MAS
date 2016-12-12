@@ -11,6 +11,9 @@ MG-MAS's documentation
    
    goals
    getting_started
+   markov
+   neural
+   summary
 
 
 
