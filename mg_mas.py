@@ -102,7 +102,7 @@ class MidiMarkovChain:
         return gen, dur
 
     #TODO - fix
-    def likelihood(self, notes, penalize_missing_keys=True, missing_factor=0.025):
+    def likelihood(self, notes, penalize_missing_keys=True, missing_factor=0.99):
         """
         A Psuedo-likelihood function for a given notes. May penalize a token if it
         does not exist in this markov state transition table. Optionally, may raise an exception instead.
@@ -112,26 +112,50 @@ class MidiMarkovChain:
         :return: A value estimating how likely the piece of text is.
         """
         score = 1.0
+
+        # list = []
+        # for note in notes:
+        #     n = note.nameWithOctave
+        #     d = note.duration.quarterLength
+        #     print(d)
+        #print(self.note_dict.keys())
         for note in notes:
             for i in range(len(notes) - self.order):
                 cur_state = [(mobj, mobj.duration.quarterLength) for mobj in notes[i:i + self.order]]  # Get current state
+                #print(cur_state)
                 next_state = [(mobj, mobj.duration.quarterLength) for mobj in notes[i + 1:i + self.order + 1]]  # Next state
+                #print(next_state)
                 if next_state[-1] == MidiMarkovChain.EOL:  # reached EOL?
                     break
-                if cur_state not in self.note_dict.keys():
+                csn = []
+                for cs in cur_state:
+                    if not cs[0].isRest:
+                        csn.append(cs[0].nameWithOctave)
+                cur_state_notes = tuple(csn)
+                nsn = []
+                for ns in next_state:
+                    if not ns[0].isRest:
+                        nsn.append(cs[0].nameWithOctave)
+                next_state_notes = tuple(nsn)
+                #print(cur_state_notes)
+                #print(self.note_dict)
+                if cur_state_notes not in self.note_dict:
                     if penalize_missing_keys:  # Penalize if needed
                         score *= missing_factor
                     else:  # Exception if needed
                         raise LookupError("Can't find '" + str(cur_state) + "' in Markov State Transition table (order " +
                                           str(self.order) + ")")
-                elif next_state not in self.note_dict[cur_state].keys():
+                elif next_state_notes not in self.note_dict[cur_state_notes]:
                     if penalize_missing_keys:  # Penalize if needed
                         score *= missing_factor
                     else:  # Exception if needed
-                        raise LookupError("Can't find '" + str(cur_state) + " -> " + str(next_state) +
+                        raise LookupError("Can't find '" + str(cur_state_notes) + " -> " + str(next_state_notes) +
                                           "' in Markov State Transition table (order " + str(self.order) + ")")
                 else:  # Psuedo-Likelihood
-                    score *= self.note_probs[cur_state][next_state]
+                    #print(next_state_notes)
+                    score *= self.note_probs[cur_state_notes][next_state_notes]
+                #print(score)
+        #print(score)
         return score
 
     def calculate_probability(self):
@@ -182,9 +206,9 @@ class MidiMarkovChain:
         calc_cdf(self.duration_probs, self.duration_cdfs)
         print("Done calculating durations cdfs...")
 
-    def generate_midi(self, length=40, start_note=None, start_duration=None):
+    def generate_midi(self, length=40, start_note=None, start_duration=None, save=False):
         notes, durs = self.generate(length, start_note, start_duration)
-        
+        print(notes, durs)
 
         # zip the notes and durs to one note object
         # music21 is a bit selfish and doesn't allow to add a note twice to a stream
@@ -195,9 +219,9 @@ class MidiMarkovChain:
 
         # delivers an random numbers like [0 < n1..n6 < len(notes)]
         structer_borders = sorted(random.sample(range(len(merged_notes)),  6))
-        
+
         # beginning to put some structure there
-        notesAndChords = list()    
+        notesAndChords = list()
         start = 0
         for b in structer_borders:
             while random.randint(0, 5) != 1: # maybe some loops
@@ -205,13 +229,14 @@ class MidiMarkovChain:
             else: # at least once
                 notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
                 start = b
-        
+
         print(len(notesAndChords))
+        #print("\n", notesAndChords)
 
         stream = music21.stream.Stream()
         piano = music21.stream.Part()
         piano.insert(music21.instrument.Flute())
-        
+
         for note in notesAndChords:
             piano.append(note)
         stream.append(piano)
@@ -219,11 +244,14 @@ class MidiMarkovChain:
 
 
         stream = MidiMarkovChain.toStream(notesAndChords)
-        MidiMarkovChain.safe_stream(stream)
+        if save:
+            MidiMarkovChain.safe_stream(stream)
+        #print(notesAndChords)
+        return notesAndChords
 
     def create_music21_notes(self, notes, start=0, end=10):
         print("start: " + str(start) + " - end: " + str(end))
-        notesAndChords = list()    
+        notesAndChords = list()
         for i in range(end - start):
             n = notes[i + start]
             notesAndChords.append(MidiMarkovChain.toNote(n["note"], n["dur"]))
@@ -376,7 +404,19 @@ print("Deriving CDF...")
 mc.calculate_cdf()
 print("Updated probs and cdfs")
 
-mc.generate_midi(length=30)
-
+best = list()
+lkhds = []
+max = 0.00000000000000000000000000000000000000000000000
+for i in range (0,9):
+    x = list(mc.generate_midi(length=30, save=False))
+    likelihood = mc.likelihood(x)
+    lkhds.append(likelihood)
+    print(likelihood)
+    if likelihood > max:
+        best = x
+        max = likelihood
+print("Saving the best midi with likelihood of: ", max)
+print("All likelihoods:", lkhds)
+MidiMarkovChain.safe_stream(MidiMarkovChain.toStream(best))
 
 #EOF
