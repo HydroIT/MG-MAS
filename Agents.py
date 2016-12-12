@@ -61,31 +61,6 @@ class MarkovLSTMAgent(CreativeAgent):
         # Create, vote, memorize, etc
         pass
 
-# Produces notes based solely on LSTM
-class LSTMAgent(CreativeAgent):
-    def __init__(self, env, weights, composer_index, judges, name=None, sequence_regen=1000, memory_size=20):
-        if name is None:
-            super().__init__(env)
-        else:
-            super().__init__(env, name=name)  # Generate an agent with a name
-        pass
-
-    def evaluate(self, artifact):
-        # Evaluate based on judge agents (average score)
-        pass
-
-    def invent(self):
-        # Use LSTM model to generate a sequence
-        pass
-
-    def novelty(self, artifact):
-        # Difference from memorized artifacts in memory bank
-        pass
-
-    async def act(self):
-        # Vote, etc...
-        pass
-
 # Does not produce, only judges given note sequences
 class JudgeAgent(CreativeAgent):
     def __init__(self, env, weights, name=None):
