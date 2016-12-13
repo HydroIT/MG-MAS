@@ -66,16 +66,22 @@ class MidiLSTM:
         x_train = list()
         y_train = list()
         for sample in x_raw:  # Refactor training data to sequences of #timesteps
-            sample_len = len(sample)
-            for i in range(sample_len - self.timesteps):
-                seq_in = sample[i:i + self.timesteps]
-                seq_out = sample[i + self.timesteps]
-                x_train.append(seq_in)
-                y_train.append(seq_out)
-        x = np.array(x_train, dtype='float32')  # Create an array of floats from the data
-        x = np.reshape(x, (len(x_train), self.timesteps, MidiLSTM.input_dim))  # Reshape to match LSTM input
-        y = np_utils.to_categorical(y_train, nb_classes=MidiLSTM.vocabulary_size)  # One-hot encode the tags
+            x, y = MidiLSTM._sample2sequences(sample)
+            x_train += x
+            y_train += y
+        x, y = self._reshape_inputs(x_train, y_train)
         self.model.fit(x, y, nb_epoch=epochs, batch_size=self.batch_size, callbacks=self.callbacks_list)
+
+    def train_single(self, stream, epochs=2):
+        """
+        Trains the LSTM network on given stream for a given number of epochs
+        :param stream: music21 stream object
+        :param epochs: number of epochs to train (default 2)
+        """
+        sample = MidiLSTM._stream2inputs(stream)  # Convert to valid inputs
+        x, y = MidiLSTM._sample2sequences(sample)  # Convert to sequences
+        x, y = self._reshape_inputs(x, y)  # reshape for LSTM inputs
+        self.model.fit(x, y, nb_epoch=epochs)  # Fit data
 
     def generate(self, sequence_length=None, iterations=100):
         """
@@ -85,6 +91,8 @@ class MidiLSTM:
         """
         if sequence_length is None:  # Use #timesteps if no sequence length is given
             sequence_length = self.timesteps
+        if iterations - sequence_length <  sequence_length:
+            iterations += sequence_length  # Ensure we don't include the random initializations in the output
         # Generate random starting pattern
         pattern = np.random.randint(MidiLSTM.rest, MidiLSTM.last_note, size=self.timesteps).tolist()
         result = pattern  # Save the result here
@@ -98,6 +106,29 @@ class MidiLSTM:
             if len(result) > sequence_length:  # Truncate to result if needed
                 result = result[1:sequence_length]
         return result
+
+    def _reshape_inputs(self, x, y):
+        true_x = np.array(x, dtype='float32')  # Create an array of floats from the data
+        true_x = np.reshape(true_x, (len(x), self.timesteps, MidiLSTM.input_dim))  # Reshape to match LSTM input
+        true_y = np_utils.to_categorical(y, nb_classes=MidiLSTM.vocabulary_size)  # One-hot encode the tags
+        return true_x, true_y
+
+    @staticmethod
+    def _sample2sequences(sample, timesteps):
+        """
+        Converts a given sample to a list of inputs and expected outputs.
+        Divides the sample into inputs of size timesteps and the expected output is the following input.
+        :returns: A list of inputs and a list of expected outputs
+        """
+        x = list()
+        y = list()
+        sample_len = len(sample)
+        for i in range(sample_len - timesteps):
+            seq_in = sample[i:i + timesteps]
+            seq_out = sample[i + timesteps]
+            x.append(seq_in)
+            y.append(seq_out)
+        return x, y
 
     @staticmethod
     def _to_midi_values(m21obj):
@@ -117,6 +148,14 @@ class MidiLSTM:
         return MidiLSTM.EOS
 
     @staticmethod
+    def _stream2inputs(stream):
+        """
+        Converts a music21 stream to a list of midi values that matches the LSTM input
+        """
+        inputs = list(stream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
+        return [MidiLSTM._to_midi_values(x) for x in inputs]
+
+    @staticmethod
     def _get_notes_from_composer(composer_index, n=20):
         """
         Gets a list of notes from the composer index given.
@@ -134,9 +173,7 @@ class MidiLSTM:
             for f in files:
                 try:
                     mstream = music21.corpus.parse(f)  # Attempt to parse
-                    inputs = list(mstream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))  # Extract data
-                    inputs_midi = [MidiLSTM._to_midi_values(x) for x in inputs]  # Convert to MIDI values
-                    data_raw.append(inputs_midi)  # Save
+                    data_raw.append(MidiLSTM._stream2inputs(mstream))  # Convert to midi list and save
                 except:
                     continue  # Skip invalid attempts
             return data_raw, len(data_raw)
