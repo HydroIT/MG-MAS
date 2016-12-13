@@ -205,12 +205,12 @@ class MidiLSTM:
 
 
 # Uncomment to see in action (might have bad results :))
-# '''
+'''
 bach = MidiLSTM(7)
 bach.load_weights("weights\weights-composer-7-43-2.4315.hdf5")
 bach.train(epochs=100, n=4)
 result = bach.generate()
 print(result)
 MidiLSTM.to_midi_stream(result)
-# '''
+'''
 # EOF
