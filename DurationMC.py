@@ -42,7 +42,7 @@ class DurationMarkovChain:
         Generate the Markov chain with the given length
         """
         if start_duration is None:  # No start state, randomly-uniformly select one (usage of set promises uniformity)
-            start_duration = random.choice(list(set(self.duration_dict.keys())))
+            start_duration = random.choice(list(set(self.duration_cdfs.keys())))
         elif start_duration not in self.duration_dict.keys():  # Bad start state given
             raise LookupError('Cannot find start token in state transitions dictionary - "{}"'.format(start_duration))
 

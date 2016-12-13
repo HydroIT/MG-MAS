@@ -73,11 +73,11 @@ class MidiMarkovChain:
         :param start_duration: duration of the starting note, default=None
         """
         if start_note is None:  # No start state, randomly-uniformly select one (usage of set promises uniformity)
-            start_note = random.choice(list(set(self.note_dict.keys())))
+            start_note = random.choice(list(set(self.note_cdfs.keys())))
         elif start_note not in self.note_dict.keys():  # Bad start state given
             raise LookupError("Cannot find start token in state transitions dictionary - '{}'".format(start_note))
         if start_duration is None:  # No start state, randomly-uniformly select one (usage of set promises uniformity)
-            start_duration = random.choice(list(set(self.duration_dict.keys())))
+            start_duration = random.choice(list(set(self.duration_cdfs.keys())))
         elif start_duration not in self.duration_dict.keys():  # Bad start state given
             raise LookupError("Cannot find start token in state transitions dictionary - '{}'".format(start_duration))
 
@@ -88,8 +88,9 @@ class MidiMarkovChain:
             rnd = random.random()
             try:
                 cdf_note, cdf_dur = self.note_cdfs[prev_note], self.duration_cdfs[prev_duration]
-            except:  # Some error occured! Just use the previous cdf_note and cdf_dur
-                pass
+            except:  # Some error occured! Select randomly again...
+                cdf_note = self.note_cdfs[random.choice(list(set(self.note_cdfs.keys())))]
+                cdf_dur = self.duration_cdfs[random.choice(list(set(self.duration_cdfs.keys())))]
             cp_note, cp_dur = cdf_note[0][1], cdf_dur[0][1]
             i = 0
             # Go through the cdf_note until the cumulative probability is higher than the random number 'rnd'.
