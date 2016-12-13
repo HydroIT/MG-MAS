@@ -36,12 +36,12 @@ The contents of `keras.json` should like like so:
 
 
 ## Files
-- Agents.py - Includes implentation of the different agents
-- NotesMC.py - Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
-- DurationMC.py - Markov Chain model that learns only durations from given MIDI streams
-- MidiLSTM.py - LSTM Neural Network that generates a sequence of notes\rests
-- JudgeLSTM.py - LSTM Neural Network that evaluates a sequence of notes\chords\rests
-- MG.py - Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
+- `Agents.py` - Includes implentation of the different agents
+- [`NotesMC.py`](https://github.com/HydroIT/MG-MAS#markov-chain) - Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
+- [`DurationMC.py`](https://github.com/HydroIT/MG-MAS#duration-markov-chain) - Markov Chain model that learns only durations from given MIDI streams
+- `MidiLSTM.py` - LSTM Neural Network that generates a sequence of notes\rests
+- `JudgeLSTM.py` - LSTM Neural Network that evaluates a sequence of notes\chords\rests
+- `MG.py` - Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
 
 ## Installation
 
@@ -102,9 +102,23 @@ while len(gen) < length and prev_note != MidiMarkovChain.EOL:
 
 
 ### Duration Markov chain
-Basically the same logic as the "big brother" `NotesMC.py` - but less complexibility due the zipping and unzipping of the notes and duration can be ignored.
-
-
+Due to the problem that `MidliLSTM.py` didn't produce different lenghts of the tones we had to implemnt a workaround to get different lenghts.
+Basically it has the same logic as the "big brother" `NotesMC.py` - but less complexibility due the zipping and unzipping of the notes and duration can be ignored.
+The learn (and also others) function might be easier to understand without the in- and outwrapping:
+```python
+def learn(self, part, update=False, log=False):
+    for i in range(len(part) - self.order - 1):
+        cur_state = tuple(part[i: i + self.order])  # Get current state
+        next_state = tuple(part[i + 1: i + self.order + 1])  # Get next state
+        if cur_state not in self.duration_dict:  # New state for transition dictionary
+            self.duration_dict[cur_state] = dict()
+        if next_state not in self.duration_dict[cur_state]:  # New next state for transition dictionary
+            self.duration_dict[cur_state][next_state] = 1
+        else:
+            self.duration_dict[cur_state][next_state] += 1  # Exists :)
+        if cur_state not in self.duration_updates:  # Add to update list
+            self.duration_updates.append(cur_state)
+```            
 
 ### Results
 The first outputs haven't conviced us that our generated music will find many sympathizers. The tracks may have some chords which sound familar but the whole creation has no passion - like creating tension and their dissolution. 
