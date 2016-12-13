@@ -40,10 +40,19 @@ The contents of `keras.json` should like like so:
 
 
 ## How to run the code
-**have no idea what to write - how the final enviroment works**
+Simply run the MG.py :)
+You can change the number of rounds in the code file.
 ```python
-python3 open file
+python3 MG.py
 ```
+
+## MAS
+The code introduces 3 types of agents and uses a simple IRV voting method for each round.
+There are 2 types of productive agents (one based entirely on Markov Chains and another on LSTMs for note generation and Markov Chains for duration generation), and 1 judging agent (uses LSTM).
+The agents have been pretrained and so the data is loaded (via pickle\hdf5 files) for a faster simulation.
+Each generative agent evaluates his creation to the best of his ability, and incroporates the judge's agents into his evaluation as well. Thus, the judging agent's vote is being taken into account at least twice - once during the voting stage and once during the agent's self evaluation. This also leads to agents learning from their own generations before submitting their final work.
+Further more, the generative agents have their own memory bank, and so implement some sense of novelty.
+The winning artifact is then being taught to all agents (including the judge agents).
 
 
 ##  Files and Structure
@@ -154,21 +163,13 @@ def learn(self, part, update=False, log=False):
 ###Long short-term memory generation - `MidiLSTM.py`
 After the not satisfying results of the Markov Chains we thought it might be a good idea to generate the train an agent during using deep long short-term memory (LSTM) networks.
 
-The whole calculation is time and/or resources-consuming, but differs on the given input. An average training with takes about 15-120 seconds each epoch.
+The whole calculation is time and/or resources-consuming, but differs on the given input. An average training with takes about 15-120 seconds each epoch, but that's also after we've given up on the deep networks and used shallow (one LSTM layer).
+We'd need more GPU, CPU and time to train the networks properly.
 
-The most important function is **PLEASE IDAN probably say what it does**
-```python
- def train(self, epochs=100, n=20):
-	 x_raw, raw_length = MidiLSTM._get_notes_from_composer(self.composer_idx, n)  # Get data
-     x_train = list()
-     y_train = list()
-     for sample in x_raw:  # Refactor training data to sequences of #timesteps
-         x, y = MidiLSTM._sample2sequences(sample, self.timesteps)
-         x_train += x
-         y_train += y
-     x, y = self._reshape_inputs(x_train, y_train)
-     self.model.fit(x, y, nb_epoch=epochs, batch_size=self.batch_size, callbacks=self.callbacks_list)
-```
+The LSTM NN is fed 64 notes at a time, and outputs a single note.
+It uses a dropout layer to prevent overfitting and eventually softmax over all the possible notes to select the most probable one.
+If we'd use the deep structure, we'd ideally have 3 LSTM layers feeding each other until a final output is given (trying to train this network took ~5000s per SAMPLE! So we dropped the idea).
+It is trained with a categorical cross-entropy loss function.
 
 ###Long short-term Memory judging - `JudgeLSTM.py`
 An attempt at neural-network-based evaluation function for midi files.
@@ -183,15 +184,14 @@ Final result gives a probability for each "genre" from the following list:
 	6. corpus.getComposer('ryansMammoth')
 	7. corpus.getComposer('trecento')
 
-The probabilities can then be used as evaluating all the different aspects of creativity:
-
+The probabilities can then be used as evaluating all the different aspects of creativity (actually implemented in some fashion in the code).
 - **value**: Does this NN consider the midi stream to be > 0.5 for any "genre"?
 - **novelty**: How far is the score given by the NN to the agent's idea of his genre? (i.e. the loss function?)
 - **surprisingness**: Incorporating the agents data, if he hasn't seen anything from genre 4 but got the highest score there, then quite surprising? etc...
 
 This network does not take into account the length\duration, but can be extended to such quite easily.
 
-**IDAN WHAT IS IMPORTANT?**
+The structure for this network is quite similar to the predictive LSTM one, except it outputs a probability distribution over the above 8 composers.
 
 ###`Agents.py`
 File consisting of our three major agent's classes: MarkovMidiAgent, MarkovLSTMAgent,  JudgeAgent and their function. MarkovMidiAgent generates music based on Markov Chain,  MarkovLSTMAgent generates music using neural networks to learn and JudgeAgent does not produce anything, just evaluate artifacts.
@@ -217,13 +217,12 @@ def memorize(self, artifact):
 ## Obstacles
 During teaching the computer to generate some lovely tunes we headed into bigger and smaller problems:
 
-- Lukas nearly died during a nasty sneezer - we already planned the final words ("please, that must be worth 5 credits)
-- Idan's bracket key stopped working. The programming was like a knight fights just with one hand.
+- Lukas nearly died during a nasty sneezer - we already planned the final words ("please, that must be worth 5 credits")
+- Idan's parenthesis key stopped working. The programming was like a knight fights just with one hand.
 - Nikolaus brought some beers after two hours swearing in German language
 - Yeah, and the generated music was not as good as hoped.
 
-The fool with a great tool is still a fool :)
-
+The fool with a great tool is still a fool :) So we avoided using Sphinx.
 
 
 
