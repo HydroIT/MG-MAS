@@ -40,7 +40,7 @@ The contents of `keras.json` should like like so:
 
 
 ## How to run the code
-Simply run the MG.py :)
+Simply download all the python files and the weights folder, and run the MG.py :)
 You can change the number of rounds in the code file.
 ```python
 python3 MG.py
