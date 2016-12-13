@@ -1,6 +1,7 @@
 import music21
 import random
 import datetime
+import time
 # import tensorflow as tf
 # import math
 
@@ -207,10 +208,16 @@ class MidiMarkovChain:
         calc_cdf(self.duration_probs, self.duration_cdfs)
         print("Done calculating durations cdfs...")
 
-    def generate_midi(self, length=40, start_note=None, start_duration=None, save=False):
+    def generate_piece(self, length=40, start_note=None, start_duration=None, repeats=False):
+        """
+        Generates a set of music21 tones based on the calculated probabilites
+        :param length: length of the piece
+        :param start_note: optional start note
+        :param start_duration: optional start duration
+        :param repeats: optional - repeats some parts
+        """
         notes, durs = self.generate(length, start_note, start_duration)
-        print(notes, durs)
-
+        
         # zip the notes and durs to one note object
         # music21 is a bit selfish and doesn't allow to add a note twice to a stream
         merged_notes = list()
@@ -218,39 +225,19 @@ class MidiMarkovChain:
             note = {'note': n, 'dur': d}
             merged_notes.append(note)
 
-        # delivers an random numbers like [0 < n1..n6 < len(notes)]
-        structer_borders = sorted(random.sample(range(len(merged_notes)),  6))
-
-        # beginning to put some structure there
-        notesAndChords = list()
-        start = 0
-        for b in structer_borders:
-            while random.randint(0, 2) != 1: # maybe some loops
-                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
-            else: # at least once
-                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
-                start = b
-
-        print(len(notesAndChords))
-        #print("\n", notesAndChords)
-
-        stream = music21.stream.Stream()
-        piano = music21.stream.Part()
-        piano.insert(music21.instrument.Flute())
-
-        for note in notesAndChords:
-            piano.append(note)
-        stream.append(piano)
-
-
-        stream = MidiMarkovChain.toStream(notesAndChords)
-        if save:
-            MidiMarkovChain.safe_stream(stream)
-        #print(notesAndChords)
+        if repeats:
+            notesAndChords = MidiMarkovChain.getSongWithRepeatings(merged_notes)
+        else:
+            notesAndChords = self.create_music21_notes(merged_notes, 0, len(merged_notes))
         return notesAndChords
 
     def create_music21_notes(self, notes, start=0, end=10):
-        print("start: " + str(start) + " - end: " + str(end))
+        """ 
+        Converts a given note list to an actual note21 list, which get an unique ID
+        :param notes: list of arrays (note, duration)
+        :param start: starting point 
+        :param end: end point
+        """
         notesAndChords = list()
         for i in range(end - start):
             n = notes[i + start]
@@ -260,10 +247,10 @@ class MidiMarkovChain:
     def easy_learn(self, stream):
         """
         Learns a given stream by formatting it as needed.
+        :param stream: the music stream
         """
         data = list(stream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
-        self.learn(data)  # Optional choose note/chord
-        # TODO - And learn backwords?
+        self.learn(data)  
         self.learn(reversed(data))
 
     def learn(self, part, update=False, log=False):
@@ -310,9 +297,29 @@ class MidiMarkovChain:
             self.calculate_probability()
             self.calculate_cdf()
 
-    def copy(self):
-        import copy
-        return copy.deepcopy(self)
+    
+    @staticmethod
+    def getSongWithRepeatings(merged_notes):
+        """
+        This function is not that fancy as it should be.
+        Tries to put some structure during the generating of the piece.
+        But then there is too much hard coded stuff in here which reduces the creativity.
+        """
+
+        # delivers an random numbers like [0 < n1..n6 < len(notes)]
+        structer_borders = sorted(random.sample(range(len(merged_notes)),  6))
+
+        # beginning to put some structure there
+        notesAndChords = list()
+        start = 0
+        for b in structer_borders:
+            while random.randint(0, 2) != 1: # maybe some loops
+                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
+            else: # at least once
+                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
+                start = b
+
+        return notesAndChords
 
     @staticmethod
     def toState(chordNote):
@@ -393,6 +400,8 @@ class MidiMarkovChain:
 # print("Learned nocturne")
 # mc.easy_learn(music21.midi.translate.midiFilePathToStream("Israel.mid"))
 # print("Learned Israel Anthem")
+
+start_time = time.time()
 bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
 mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
 for i in range(1, int(len(bachs)/32)):  # 100 samples should be enough for now (studying both reverse and normal!)
@@ -404,6 +413,13 @@ print("Deriving CDF...")
 mc.calculate_cdf()
 print("Updated probs and cdfs")
 
+x = mc.generate_piece(length=80)
+
+print(x)
+
+
+print("--- %s seconds ---" % (time.time() - start_time))
+"""
 best = list()
 lkhds = []
 max = 0.00000000000000000000000000000000000000000000000
@@ -420,3 +436,4 @@ print("All likelihoods:", lkhds)
 MidiMarkovChain.safe_stream(MidiMarkovChain.toStream(best))
 
 #EOF
+"""
