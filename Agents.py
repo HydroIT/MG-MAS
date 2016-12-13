@@ -34,7 +34,7 @@ class MarkovMidiAgent(CreativeAgent):
         self.judges = judges if judges is not None else list()
         self.learning_threshold = learning_threshold
         if self.logger:
-            self.logger.debug("Markov Agent {} initialized".format(self.name))
+            self.logger.debug("Agent {} initialized!".format(self.name))
 
     def evaluate(self, artifact):
         """
@@ -229,9 +229,10 @@ class JudgeAgent(CreativeAgent):
             novelty = 0
             surprisingness = 0
         if self.logger:
-            self.logger.debug("Judge gave {}'s artifact the following scores:\n\tValue: {}"
+            self.logger.debug("{} gave {}'s artifact the following scores:\n\tValue: {}"
                               "\n\tNovelty: {}"
-                              "\n\tSurprisingness: {}".format(artifact.creator, value, novelty, surprisingness))
+                              "\n\tSurprisingness: {}".format(self.name, artifact.creator, value, novelty,
+                                                              surprisingness))
         return value, novelty, surprisingness
 
     def evaluate(self, artifact):
