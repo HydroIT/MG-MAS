@@ -33,28 +33,24 @@ class MidiEnvironment(Environment):
 
 env = MidiEnvironment.create(('localhost', 5555))
 judges = list()
-judges.append(JudgeAgent(env, r"weights\weights-classify-70-0.3340.hdf5", name="Judge #1", logger=logger))
-judges.append(JudgeAgent(env, r"weights\weights-classify-90-0.4151.hdf5", name="Judge #2", logger=logger))
-'''
-composers = {0: 'bach', 1: 'beethoven', 2: 'essenFolksong', 3: 'monteverdi',
-                 4: 'oneills1850', 5: 'palestrina', 6: 'ryansMammoth', 7: 'trecento'}
-'''
-markov_lstm_pairs = {0: (r"weights\weights-composer-0-99-1.8424.hdf5", r"weights\bach_duration.mc"),
-                     1: (r"weights\weights-composer-1-10-3.3988.hdf5", r"weights\beethoven_duration.mc"),
-                     2: (r"weights\weights-composer-2-32-2.2389.hdf5", r"weights\essenFolksong_duration.mc"),
-                     3: (r"weights\weights-composer-3-88-1.9254.hdf5", r"weights\monteverdi_duration.mc"),
-                     4: (r"weights\weights-composer-4-17-2.2279.hdf5", r"weights\oneills1850_duration.mc"),
-                     5: (r"weights\weights-composer-5-07-2.4109.hdf5", r"weights\palestrina_duration.mc"),
-                     6: (r"weights\weights-composer-6-98-1.8839.hdf5", r"weights\ryansMammoth_duration.mc"),
-                     7: (r"weights\weights-composer-7-98-1.6597.hdf5", r"weights\trecento_duration.mc")}
-mc_pairs = {0: r"weights\bach.mc",
-            1: r"weights\beethoven.mc",
-            2: r"weights\essenFolksong.mc",
-            3: r"weights\monteverdi.mc",
-            4: r"weights\oneills1850.mc",
-            5: r"weights\palestrina.mc",
-            6: r"weights\ryansMammoth.mc",
-            7: r"weights\trecento.mc"}
+judges.append(JudgeAgent(env, "weights/weights-classify-70-0.3340.hdf5", name="Judge #1", logger=logger))
+judges.append(JudgeAgent(env, "weights/weights-classify-90-0.4151.hdf5", name="Judge #2", logger=logger))
+markov_lstm_pairs = {0: ("weights/weights-composer-0-99-1.8424.hdf5", "weights/bach_duration.mc"),
+                     1: ("weights/weights-composer-1-10-3.3988.hdf5", "weights/beethoven_duration.mc"),
+                     2: ("weights/weights-composer-2-32-2.2389.hdf5", "weights/essenFolksong_duration.mc"),
+                     3: ("weights/weights-composer-3-88-1.9254.hdf5", "weights/monteverdi_duration.mc"),
+                     4: ("weights/weights-composer-4-17-2.2279.hdf5", "weights/oneills1850_duration.mc"),
+                     5: ("weights/weights-composer-5-07-2.4109.hdf5", "weights/palestrina_duration.mc"),
+                     6: ("weights/weights-composer-6-98-1.8839.hdf5", "weights/ryansMammoth_duration.mc"),
+                     7: ("weights/weights-composer-7-98-1.6597.hdf5", "weights/trecento_duration.mc")}
+mc_pairs = {0: "weights/bach.mc",
+            1: "weights/beethoven.mc",
+            2: "weights/essenFolksong.mc",
+            3: "weights/monteverdi.mc",
+            4: "weights/oneills1850.mc",
+            5: "weights/palestrina.mc",
+            6: "weights/ryansMammoth.mc",
+            7: "weights/trecento.mc"}
 for k, v in markov_lstm_pairs.items():
     MarkovLSTMAgent(env, v[0], v[1], composer_index=k, judges=judges, name="LSTM #" + str(k), logger=logger)
 for k, v in mc_pairs.items():
