@@ -8,7 +8,7 @@ MG-MAS's documentation
 
 .. toctree::
    :maxdepth: 2
-   
+
    goals
    getting_started
    markov

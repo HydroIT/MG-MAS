@@ -6,9 +6,8 @@ SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = MG-MAS
 SOURCEDIR     = .
-BUILDDIR      = ../../MG-MAS-DOCS
-PDFBUILDDIR   = /tmp
-PDF           = ../manual.pdf
+SPHINXPROJ    = MG-MAS
+BUILDDIR      = _build
 
 # Put it first so that "make" without argument is like "make help".
 help:

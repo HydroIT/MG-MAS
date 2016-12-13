@@ -23,7 +23,7 @@ Following python modules (and their dependencies) must be installed
 
 * numpy (http://www.numpy.org/)
 
-* scipy
+* scipy (https://www.scipy.org/install.html)
 
 * theano
 
