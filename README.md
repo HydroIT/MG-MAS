@@ -39,23 +39,22 @@ The contents of `keras.json` should like like so:
 ```
 
 
-## Files and Structure
-- `Agents.py` - Includes implentation of the different agents
-- [`NotesMC.py`](https://github.com/HydroIT/MG-MAS#markov-chain) - Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
-- [`DurationMC.py`](https://github.com/HydroIT/MG-MAS#duration-markov-chain) - Markov Chain model that learns only durations from given MIDI streams
-- [`MidiLSTM.py`](https://github.com/HydroIT/MG-MAS/blob/master/README.md#midi---lstm-midilstmpy) - LSTM Neural Network that generates a sequence of notes\rests
-- [`JudgeLSTM.py`]() - LSTM Neural Network that evaluates a sequence of notes\chords\rests
-- `MG.py` - Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
-
-
 ## How to run the code
 **have no idea what to write - how the final enviroment works**
 ```python
-python3 open file?!
+python3 open file
 ```
 
 
-## Explanations of the Code
+##  Files and Structure
+The projects consists of following classes which are explained in following section.
+
+- [`Agents.py`]() - Includes implentation of the different agents
+- [`NotesMC.py`]()- Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
+- [`DurationMC.py`]() Markov Chain model that learns only durations from given MIDI streams
+- [`MidiLSTM.py`]() - LSTM Neural Network that generates a sequence of notes\rests
+- [`JudgeLSTM.py`]() - LSTM Neural Network that evaluates a sequence of notes\chords\rests
+- [`MG.py`]()- Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
 
 ###Markov Chain (`mg_mas.py`)
 Generate two Markov chains, one for the pitches, a second for the durations, analyzing the same songs but independent to each other.
@@ -113,7 +112,7 @@ One thought was to modify the creation a bit towards an actual rhythm. Simplest 
 But the dark side of putting that much control into the generation is, that the program cannot be that creative by itself. Therefore that idea was rejected soon. The last scraps of that idea are found in the function `getSongWithRepeatings(merged_notes)`.
 
 
-### Duration Markov chain (`DurationMC.py`)
+### Duration Markov Chain - `DurationMC.py`
 Due to the problem that `MidliLSTM.py` didn't produce different lengths of the tones we had to implement a workaround to get different length.
 Basically it has the same logic as the "big brother" `NotesMC.py` - but less complexity due the zipping and unzipping of the notes and duration can be ignored.
 The learn (and also others) function might be easier to understand without the in- and out-wrapping:
@@ -132,7 +131,7 @@ def learn(self, part, update=False, log=False):
             self.duration_updates.append(cur_state)
 ```           
 
-###MIDI - LSTM (`MidiLSTM.py`)
+###Long short-term memory generation - `MidiLSTM.py`
 After the not satisfying results of the Markov Chains we thought it might be a good idea to generate the train an agent during using deep long short-term memory (LSTM) networks.
 
 The whole calculation is time and/or resources-consuming, but differs on the given input. An average training with takes about 15-120 seconds each epoch. 
@@ -151,7 +150,7 @@ The most important function is **PLEASE IDAN probably say what it does**
      self.model.fit(x, y, nb_epoch=epochs, batch_size=self.batch_size, callbacks=self.callbacks_list)
 ```
 
-###Judge LSTM (`JudgeLSTM.py`)
+###Long short-term Memory judging - `JudgeLSTM.py`
 An attempt at neural-network-based evaluation function for midi files.
 Final result gives a probability for each "genre" from the following list:
 
@@ -174,7 +173,34 @@ This network does not take into account the length\duration, but can be extended
 
 **IDAN WHAT IS IMPORTANT?**
 
+###`Agents.py`
+tba
 
+###List Memory `ListMemory.py`
+
+A helper class  for the `Agent` class, which provides a simple list memory in which all seen artifacts are stored into a list.
+It works as a FIFO-stack, if an artifact is already in the memory it will be ignored - if the memory is full but the new artifact has to be memorized, the oldest artifact will be removed.
+
+
+```python
+def memorize(self, artifact):
+ if artifact in self._artifacts:
+	 return
+
+  self._artifacts.insert(0, artifact)
+  if len(self._artifacts) > self.capacity:
+	  self._artifacts = self._artifacts[:self.capacity]
+```
+
+## Obstacles
+During teaching the computer to generate some lovely tunes we headed into bigger and smaller problems:
+
+- Lukas nearly died during a nasty sneezer - we already planned the final words ("please, that must be worth 5 credits)
+- Idan's bracket key stopped working. The programming was like a knight fights just with one hand. 
+- Yeah, and the generated music was not as good as hoped. 
+
+
+ 
 
 ## Results
 Firstly, the first outputs haven't conviced us that our generated music will find many sympathizers. The tracks may have some chords which sound familar but the whole creation has no passion - like creating tension and their dissolution. 
