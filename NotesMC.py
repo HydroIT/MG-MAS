@@ -1,8 +1,8 @@
 import music21
 import random
 import datetime
-import time
 import pickle
+
 
 class MidiMarkovChain:
     EOL = None  # Universal end of line symbol
@@ -23,7 +23,6 @@ class MidiMarkovChain:
         self.duration_cdfs = dict()
         self.note_updates = list()
         self.duration_updates = list()
-
         if music21stream is not None:
             self.easy_learn(music21stream)
             self.update_all()
@@ -53,7 +52,6 @@ class MidiMarkovChain:
             pickle.dump(self.duration_cdfs, f)
             pickle.dump(self.order, f)
 
-
     def load(self, filename):
         """
         Load generated Markov chain from a file
@@ -73,27 +71,16 @@ class MidiMarkovChain:
         Generate list of notes of given length from markov states transition
         :param length: number of notes to generate, default=40
         :param start_note: note to start from, default=None
-        :start_duration: duration of the starting note, default=None
+        :param start_duration: duration of the starting note, default=None
         """
-        def random_note():
-            """
-            Generates a random note from a selection with an octave and accidental
-            """
-            note = random.choice(["A", "B", "C", "D", "E", "F", "G"])
-            # We want a reasonable sound so we don't include uncommon octaves or accidentals
-            # and we give more chances to no accidental color
-            octave = random.choice(["3", "4", "5", "6"])
-            accidental = random.choice(["", "#", "", "-", "", "#", "", "-", ""])
-            return note + accidental + octave
-
         if start_note is None:  # No start state, randomly-uniformly select one (usage of set promises uniformity)
             start_note = random.choice(list(set(self.note_dict.keys())))
         elif start_note not in self.note_dict.keys():  # Bad start state given
-            raise LookupError("Cannot find start token in state transitions dictionary - \"" + str(start_note) + "\"")
+            raise LookupError("Cannot find start token in state transitions dictionary - '{}'".format(start_note))
         if start_duration is None:  # No start state, randomly-uniformly select one (usage of set promises uniformity)
             start_duration = random.choice(list(set(self.duration_dict.keys())))
         elif start_duration not in self.duration_dict.keys():  # Bad start state given
-            raise LookupError("Cannot find start token in state transitions dictionary - \"" + str(start_duration) + "\"")
+            raise LookupError("Cannot find start token in state transitions dictionary - '{}'".format(start_duration))
 
         prev_note, prev_duration = start_note, start_duration
         gen = list(start_note)
@@ -123,7 +110,6 @@ class MidiMarkovChain:
                 prev_duration = cdf_dur[i][0]
         return gen, dur
 
-    #TODO - fix
     def likelihood(self, notes, penalize_missing_keys=True, missing_factor=0.99):
         """
         A Psuedo-likelihood function for a given notes. May penalize a token if it
@@ -157,16 +143,17 @@ class MidiMarkovChain:
                     if penalize_missing_keys:  # Penalize if needed
                         score *= missing_factor
                     else:  # Exception if needed
-                        raise LookupError("Can't find '" + str(cur_state) + "' in Markov State Transition table (order " +
-                                          str(self.order) + ")")
+                        raise LookupError("Can't find '{}' in Markov State Transition table (order {})".format(
+                            cur_state, self.order))
                 elif next_state_notes not in self.note_dict[cur_state_notes]:
                     if penalize_missing_keys:
                         score *= missing_factor
                     else:  # Exception if needed
-                        raise LookupError("Can't find '" + str(cur_state_notes) + " -> " + str(next_state_notes) +
-                                          "' in Markov State Transition table (order " + str(self.order) + ")")
-                else: # Psuedo-Likelihood
-                    score *= self.note_probs[cur_state_notes][next_state_notes] / max(self.note_probs[cur_state_notes].values())
+                        raise LookupError("Can't find '{}' -> '{}' in Markov State Transition table (order {})".format(
+                            cur_state_notes, next_state_notes))
+                else: # Psuedo-Likelihood (Normalized)
+                    score *= self.note_probs[cur_state_notes][next_state_notes] /\
+                             max(self.note_probs[cur_state_notes].values())
         return score
 
     def calculate_probability(self):
@@ -182,12 +169,8 @@ class MidiMarkovChain:
                 total = sum(sub_dict.values()) + diff_values * MidiMarkovChain.alpha
                 for w, c in sub_dict.items():
                     probs[key][w] = (float(c) + MidiMarkovChain.alpha) / total
-        self.note_probs.clear()
         calc_prob(self.note_dict, self.note_probs, self.note_updates)
-        print("Done calculating notes probabilities...")
-        self.duration_probs.clear()
         calc_prob(self.duration_dict, self.duration_probs, self.duration_updates)
-        print("Done calculating durations probabilities...")
 
     def calculate_cdf(self):
         """
@@ -207,14 +190,10 @@ class MidiMarkovChain:
                 cdf[-1][1] = 1.0  # For possible rounding errors
                 cdfs[key] = cdf
 
-        self.note_cdfs.clear()
         calc_cdf(self.note_probs, self.note_cdfs, self.note_updates)
-        print("Done calculating notes cdfs...")
-        self.duration_cdfs.clear()
         calc_cdf(self.duration_probs, self.duration_cdfs, self.duration_updates)
-        print("Done calculating durations cdfs...")
 
-    def generate_piece(self, length=40, start_note=None, start_duration=None, repeats=False):
+    def generate_piece(self, length=40, start_note=None, start_duration=None):
         """
         Generates a set of music21 tones based on the calculated probabilites
         :param length: length of the piece
@@ -223,16 +202,11 @@ class MidiMarkovChain:
         :param repeats: optional - repeats some parts
         """
         notes, durs = self.generate(length, start_note, start_duration)
-
         merged_notes = list()
         for n, d in zip(notes, durs):
             note = {'note': n, 'dur': d}
             merged_notes.append(note)
-
-        if repeats:
-            notesAndChords = MidiMarkovChain.getSongWithRepeatings(merged_notes)
-        else:
-            notesAndChords = self.create_music21_notes(merged_notes, 0, len(merged_notes))
+        notesAndChords = self.create_music21_notes(merged_notes, 0, len(merged_notes))
         return notesAndChords
 
     def create_music21_notes(self, notes, start=0, end=10):
@@ -266,6 +240,8 @@ class MidiMarkovChain:
         :return:
         """
         def update_dict(dictionary, updates, cur_state, next_state):
+            # Generic hidden function to update a given dictionary and an updates list with the given cur_state
+            # and next_state
             if cur_state not in dictionary:
                 dictionary[cur_state] = dict()
             if next_state not in dictionary[cur_state]:
@@ -276,6 +252,7 @@ class MidiMarkovChain:
                 updates.append(cur_state)
 
         def notes_duration_tuples(notes_list):
+            # Convert a notes list to valid markov chain states
             notes = list()
             duration = list()
             for note in notes_list:
@@ -284,7 +261,7 @@ class MidiMarkovChain:
                 duration.append(d)
             return tuple(notes), tuple(duration)
 
-        #part = [x for x in part if x.duration.quarterLength > 0]  # Remove 0-length notes
+        # Remove 0-length notes
         temp = list()
         for x in part:
             try:
@@ -301,39 +278,15 @@ class MidiMarkovChain:
             update_dict(self.note_dict, self.note_updates, cur_note_state, next_note_state)
             update_dict(self.duration_dict, self.duration_updates, cur_dur_state, next_dur_state)
         if len(part):
-            update_dict(self.note_dict, self.note_updates, cur_note_state, MidiMarkovChain.EOL)  # Add EOL after each part
+            # Add EOL after each part
+            update_dict(self.note_dict, self.note_updates, cur_note_state, MidiMarkovChain.EOL)
             # We do not add to duration because we want to be able to draw as much as needed from it
 
         if update:
-            if log:
+            if log:  # Verbose?
                 print("Learned " + ' '.join(part))
             self.calculate_probability()
             self.calculate_cdf()
-
-
-    @staticmethod
-    def getSongWithRepeatings(merged_notes):
-        """
-        This function is not that fancy as it should be.
-        Tries to put some structure during the generating of the piece.
-        But then there is too much hard coded stuff in here which reduces the creativity.
-        :param merged_notes: List of notes merged with durations
-        """
-
-        # delivers an random numbers like [0 < n1..n6 < len(notes)]
-        structer_borders = sorted(random.sample(range(len(merged_notes)),  6))
-
-        # beginning to put some structure there
-        notesAndChords = list()
-        start = 0
-        for b in structer_borders:
-            while random.randint(0, 2) != 1: # maybe some loops
-                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
-            else: # at least once
-                notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
-                start = b
-
-        return notesAndChords
 
     @staticmethod
     def toState(chordNote):
@@ -376,19 +329,14 @@ class MidiMarkovChain:
         """
         stream = music21.stream.Stream()
         piano = music21.stream.Part()
-
         piano.insert(music21.instrument.Flute())
-
-
         for note in notesAndChords:
             piano.append(note)
         stream.append(piano)
-
         return stream
 
-
     @staticmethod
-    def safe_stream(stream):
+    def save_stream(stream):
         """
         Save stram into a file
         :param stream: Music21 stream
@@ -396,3 +344,5 @@ class MidiMarkovChain:
         fn = 'export-' + str(datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")) + '.mid'
         stream.write('midi', fp=fn)
         print("midi saved.")
+
+# EOF
