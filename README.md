@@ -41,7 +41,8 @@ The contents of `keras.json` should like like so:
 
 ## How to run the code
 Simply download all the python files and the weights folder, and run the MG.py :)
-You can change the number of rounds in the code file.
+You can change the number of rounds in the code file, and remove several agents if the process is taking too long.
+(We mean, you have 18 agents in total, 10 of them are LSTM and are CPU-hungry... so... yeah, feel free to do so)
 ```python
 python3 MG.py
 ```
