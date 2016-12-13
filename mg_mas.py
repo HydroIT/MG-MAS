@@ -155,7 +155,7 @@ class MidiMarkovChain:
                                           "' in Markov State Transition table (order " + str(self.order) + ")")
                 else:  # Psuedo-Likelihood
                     #print(next_state_notes)
-                    score *= self.note_probs[cur_state_notes][next_state_notes]
+                    score *= self.note_probs[cur_state_notes][next_state_notes] / max(self.note_probs[cur_state_notes].values())
                 #print(score)
         #print(score)
         return score
@@ -217,7 +217,7 @@ class MidiMarkovChain:
         :param repeats: optional - repeats some parts
         """
         notes, durs = self.generate(length, start_note, start_duration)
-        
+
         # zip the notes and durs to one note object
         # music21 is a bit selfish and doesn't allow to add a note twice to a stream
         merged_notes = list()
@@ -232,10 +232,10 @@ class MidiMarkovChain:
         return notesAndChords
 
     def create_music21_notes(self, notes, start=0, end=10):
-        """ 
+        """
         Converts a given note list to an actual note21 list, which get an unique ID
         :param notes: list of arrays (note, duration)
-        :param start: starting point 
+        :param start: starting point
         :param end: end point
         """
         notesAndChords = list()
@@ -250,7 +250,7 @@ class MidiMarkovChain:
         :param stream: the music stream
         """
         data = list(stream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
-        self.learn(data)  
+        self.learn(data)
         self.learn(reversed(data))
 
     def learn(self, part, update=False, log=False):
@@ -297,7 +297,7 @@ class MidiMarkovChain:
             self.calculate_probability()
             self.calculate_cdf()
 
-    
+
     @staticmethod
     def getSongWithRepeatings(merged_notes):
         """
@@ -401,24 +401,24 @@ class MidiMarkovChain:
 # mc.easy_learn(music21.midi.translate.midiFilePathToStream("Israel.mid"))
 # print("Learned Israel Anthem")
 
-start_time = time.time()
-bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
-mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
-for i in range(1, int(len(bachs)/32)):  # 100 samples should be enough for now (studying both reverse and normal!)
-    print("Learning bach #" + str(i + 1))
-    mc.easy_learn(music21.corpus.parse(bachs[i]))
-print("Calculating probabilities...")
-mc.calculate_probability()
-print("Deriving CDF...")
-mc.calculate_cdf()
-print("Updated probs and cdfs")
+# start_time = time.time()
+# bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
+# mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
+# for i in range(1, int(len(bachs)/32)):  # 100 samples should be enough for now (studying both reverse and normal!)
+#     print("Learning bach #" + str(i + 1))
+#     mc.easy_learn(music21.corpus.parse(bachs[i]))
+# print("Calculating probabilities...")
+# mc.calculate_probability()
+# print("Deriving CDF...")
+# mc.calculate_cdf()
+# print("Updated probs and cdfs")
+#
+# x = mc.generate_piece(length=80)
+#
+# print(x)
 
-x = mc.generate_piece(length=80)
 
-print(x)
-
-
-print("--- %s seconds ---" % (time.time() - start_time))
+# print("--- %s seconds ---" % (time.time() - start_time))
 """
 best = list()
 lkhds = []

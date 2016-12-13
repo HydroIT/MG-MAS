@@ -1,16 +1,23 @@
 from creamas.core import CreativeAgent, Environment, Simulation, Artifact
 from mg_mas import MidiMarkovChain
 from mas_memory import ListMemory
-import music21
 
-# Produces solely based on markov chains
 class MarkovMidiAgent():
-    def __init__(self, markov_chain, composer_index, name=None, generation_attempts=10,
-                 memory_size=20, env=None):
-        # if name is None:
-        #     super().__init__(env)
-        # else:
-        #     super().__init__(env, name=name)  # Generate an agent with a name
+    def __init__(self, env, markov_chain, composer_index, name=None, generation_attempts=10,
+                 memory_size=20):
+        """
+        MarkovMidiAgent is a class responsible for generating MIDI songs based on the Markov chains calculated from MIDI files. Also deals with evaluation which is based on likelihood and novelty of the artifact.
+        :param env: enviroment object where is agent called from
+        :param markov_chain: markov_chain object with calculated transitions and probabilities of notes and durations
+        :param composer_index: integer that represents which composer was chosen
+        :param name: optional - name of the agent
+        :param generation_attempts: optional - how many artifact to generate for evaluation, default=10
+        :param memory_size: optional - how many artifacts to memorize in the ListMemory object, default 20
+        """
+        if name is None:
+            super().__init__(env)
+        else:
+            super().__init__(env, name=name)
         self.mmc = markov_chain
         self.env = env
         self.composer_index = composer_index
@@ -18,18 +25,27 @@ class MarkovMidiAgent():
         self.mem = ListMemory(memory_size)
 
     def evaluate(self, artifact):
+        """
+        Method that evaluates the artifact, based on it's likelihood and novelty.
+        :param artifact: generated MIDI notes and durations from generate() function.
+        Returns float number between 0-1 (the bigger the better evaluation).
+        """
         likelihood = self.mmc.likelihood(artifact)
         novelty = self.novelty(artifact)
         evaluation = (likelihood + novelty) / 2
-        print("Likelihood: ", likelihood, " Novelty: ", novelty)
         return evaluation
 
     def generate(self):
-        midi = list(self.mmc.generate_midi(length=30, save=False))
+        """
+        Method calling generate_piece() from MidiMarkovChain class which returns a MIDI tones with durations
+        """
+        midi = list(self.mmc.generate_piece(length=30))
         return midi
 
     def invent(self):
-        # Generate generation_attempts sequences and choose the best one according to self evaluation
+        """
+        Invent a number of artifacts (self.generation attempts) and evaluate them. Only the artifact with best evaluation score is returned.
+        """
         best = list()
         lkhds = []
         max = 0.00000000000000000000000000000000000000000000
@@ -40,24 +56,24 @@ class MarkovMidiAgent():
             print(eval)
             if eval > max:
                 best = midi
-                max = eval
-        print("Saving the best midi with evaluation of: ", max)
-        print("All likelihoods:", lkhds)
-        #MidiMarkovChain.safe_stream(MidiMarkovChain.toStream(best))
         return best
 
     def novelty(self, artifact):
-        # Use some memory bank and see how different it is from recently-known artifacts
-        # (Per memory sequence: number of notes that are different, divide by total number of notes)
-        # (Then divide by size of memory bank)
-        # Can also use judge agents?
+        """
+        Calculate novelty of the artifact based on the memory. If created notes are different from the set of memorized ones the difference score increases and afterwards the novelty is higher.
+        :param artifact: generated MIDI notes and durations from generate() function.
+        """
         novelty = 1.0
         diff = 0
+        #print(artifact)
         memory = self.mem.artifacts
         for i,n in enumerate(artifact):
             for memart in memory:
-                if n != memart.obj[0]:
-                    diff += 1
+                try:
+                    if n != memart[i]:
+                        diff += 1
+                except:
+                    pass
         print(len(memory))
         diff /= len(artifact)
         if len(memory) > 0:
@@ -65,6 +81,9 @@ class MarkovMidiAgent():
         return diff
 
     async def act(self):
+        """
+        Agents act by inventing new songs and then memorize them in the memory
+        """
         artifact = self.invent()
         self.mem.memorize(artifact)
 
@@ -108,16 +127,3 @@ class JudgeAgent(CreativeAgent):
     def evaluate(self, artifact):
         # Run given artifact through own LSTM and give predictions
         pass
-
-bachs = music21.corpus.getBachChorales()  #music21.corpus.getMonteverdiMadrigals() #
-mc = MidiMarkovChain(music21.corpus.parse(bachs[0]), order=6)
-for i in range(1, int(len(bachs)/32)):  # 100 samples should be enough for now (studying both reverse and normal!)
-    print("Learning bach #" + str(i + 1))
-    mc.easy_learn(music21.corpus.parse(bachs[i]))
-print("Calculating probabilities...")
-mc.calculate_probability()
-print("Deriving CDF...")
-mc.calculate_cdf()
-print("Updated probs and cdfs")
-mma = MarkovMidiAgent(mc, 0)
-midi = mma.invent()
