@@ -37,17 +37,10 @@ class MidiLSTM:
             self.batch_size = batch_size  # How many samples are required for update
             # Create the model (Sequential model)
             self.model = Sequential()
-            # First LSTM layer, returns a matching sequence of vectors of dimension hidden_dim
-            self.model.add(LSTM(self.hidden_dim, input_shape=(self.timesteps, MidiLSTM.input_dim)))#,
-                                #return_sequences=True))
-            # First Dropout layer (forget some samples, prevents overfitting)
+            # LSTM layer, returns a matching sequence of vectors of dimension hidden_dim
+            self.model.add(LSTM(self.hidden_dim, input_shape=(self.timesteps, MidiLSTM.input_dim)))
+            # Dropout layer (forget some samples, prevents overfitting)
             self.model.add(Dropout(0.15))
-            # Second LSTM layer, returns a matching sequence of vectors of dimension hidden_dim
-            #self.model.add(LSTM(self.hidden_dim, return_sequences=True))
-            # Second Dropout layer (forget some samples, prevents overfitting)
-            #self.model.add(Dropout(0.1))
-            # Third LSTM layer, returns one final output vector of hidden_dim (representing the entire sequence)
-            #self.model.add(LSTM(self.hidden_dim))
             # Final layer, reduce to tag-one-hot-encoding and softmax over it
             self.model.add(Dense(MidiLSTM.vocabulary_size, activation='softmax'))
             # Compile with categorical cross-entropy loss and ada-delta optimizer
@@ -60,13 +53,19 @@ class MidiLSTM:
             raise Exception("Cannot find specified composer in composer data")
 
     def load_weights(self, weight_file):
+        """
+        Loads given weight file for the LSTM
+        """
         self.model.load_weights(weight_file)
 
     def train(self, epochs=100, n=20):
-        x_raw, raw_length = MidiLSTM._get_notes_from_composer(self.composer_idx, n)
+        """
+        Trains the LSTM network on #n samples (chosen randomly) of the instantiated composer for given epochs.
+        """
+        x_raw, raw_length = MidiLSTM._get_notes_from_composer(self.composer_idx, n)  # Get data
         x_train = list()
         y_train = list()
-        for sample in x_raw:
+        for sample in x_raw:  # Refactor training data to sequences of #timesteps
             sample_len = len(sample)
             for i in range(sample_len - self.timesteps):
                 seq_in = sample[i:i + self.timesteps]
@@ -78,69 +77,102 @@ class MidiLSTM:
         y = np_utils.to_categorical(y_train, nb_classes=MidiLSTM.vocabulary_size)  # One-hot encode the tags
         self.model.fit(x, y, nb_epoch=epochs, batch_size=self.batch_size, callbacks=self.callbacks_list)
 
-    def generate(self, sequence_length=None, iterations=1000):
-        if sequence_length is None:
+    def generate(self, sequence_length=None, iterations=100):
+        """
+        Generates a music sequence of given length (if None is given (default), creates a sequence of
+        length #timestamps. Number of iterations is how far to roll the information inside the LSTM
+        :return: List of notes (midi values)
+        """
+        if sequence_length is None:  # Use #timesteps if no sequence length is given
             sequence_length = self.timesteps
+        # Generate random starting pattern
         pattern = np.random.randint(MidiLSTM.rest, MidiLSTM.last_note, size=self.timesteps).tolist()
-        result = pattern
-        for _ in range(iterations):
-            x = np.array(pattern, dtype='float32')
-            x = np.reshape(x, (1, self.timesteps, MidiLSTM.input_dim))  # One sample
-            prediction = np.argmax(self.model.predict(x, verbose=0))
-            pattern.append(prediction)
-            pattern = pattern[1:]
-            result.append(prediction)
-            if len(result) > sequence_length:
+        result = pattern  # Save the result here
+        for _ in range(iterations):  # Iterate enough times
+            x = np.array(pattern, dtype='float32')  # Reshape the data
+            x = np.reshape(x, (1, self.timesteps, MidiLSTM.input_dim))  # One sample x timesteps x input_dim
+            prediction = np.argmax(self.model.predict(x, verbose=0))  # Most matching midi value
+            pattern.append(prediction)  # Append to pattern
+            pattern = pattern[1:]  # Truncate pattern to fit timesteps
+            result.append(prediction)  # Append to result
+            if len(result) > sequence_length:  # Truncate to result if needed
                 result = result[1:sequence_length]
         return result
 
     @staticmethod
     def _to_midi_values(m21obj):
+        """
+        Converts a music21 object to it's MIDI value + 1 (so 0 is rest).
+        Only considers first note a chord.
+        """
         if m21obj.isNote:
             return m21obj.pitch.midi + 1  # +1 so that 0 is rest
         elif m21obj.isChord:  # Only consider first note in chord
-            return m21obj.pitches[0].midi + 1  # +1 so that 0 is rest
+            if len(m21obj.pitches) > 0:
+                return m21obj.pitches[0].midi + 1  # +1 so that 0 is rest
+            else:  # Invalid
+                return MidiLSTM.EOS
         elif m21obj.isRest:
             return MidiLSTM.rest
         return MidiLSTM.EOS
 
     @staticmethod
     def _get_notes_from_composer(composer_index, n=20):
-        if composer_index in MidiLSTM.composers.keys():
-            files = music21.corpus.getComposer(MidiLSTM.composers[composer_index])
+        """
+        Gets a list of notes from the composer index given.
+        Samples n samples randomly and extracts the midi values from that.
+        If n is None, uses all the data.
+        :param composer_index: Matches the composers dictionary in this class
+        :param n: Number of samples
+        :return: List of lists of notes, and how many samples there are in total
+        """
+        if composer_index in MidiLSTM.composers.keys():  # Sanity check
+            files = music21.corpus.getComposer(MidiLSTM.composers[composer_index])  # File list
             if n is not None:
-                files = random.sample(files, n)
-            data_raw = list()
+                files = random.sample(files, n)  # Sample n samples
+            data_raw = list()  # Data will be kept here
             for f in files:
                 try:
-                    mstream = music21.corpus.parse(f)
-                    inputs = list(mstream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))
-                    inputs_midi = [MidiLSTM._to_midi_values(x) for x in inputs]
-                    data_raw.append(inputs_midi)
+                    mstream = music21.corpus.parse(f)  # Attempt to parse
+                    inputs = list(mstream.sorted.flat.getElementsByClass(["Note", "Chord", "Rest"]))  # Extract data
+                    inputs_midi = [MidiLSTM._to_midi_values(x) for x in inputs]  # Convert to MIDI values
+                    data_raw.append(inputs_midi)  # Save
                 except:
-                    continue
+                    continue  # Skip invalid attempts
             return data_raw, len(data_raw)
         else:
             raise Exception("Composer index not found")
 
     @staticmethod
-    def _to_midi_stream(sequence):
+    def _to_midi_stream(notes, durations=None):
+        """
+        Converts a list of notes (and optional durations) to a playable midi track.
+        If no durations are given, all notes will have 1 quarter length.
+        :param notes: List of notes (midi values)
+        :param durations: List of durations (quarter lengths), where len(durations) = len(notes)
+        :return: Stream for the file
+        """
         stream = music21.stream.Stream()
         piano = music21.stream.Part()
         piano.insert(music21.instrument.Piano())
-        for m in sequence:
-            piano.append(music21.note.Note(m - 1) if m > 0 else music21.note.Rest())
+        if durations is None:
+            durations = [1.0] * len(notes)
+        for m, d in zip(notes, durations):
+            note = music21.note.Note(m - 1) if m > 0 else music21.note.Rest()
+            note.duration.quarterLength = d
+            piano.append(note)
         stream.append(piano)
         stream.show('midi')
         return stream
 
 
-# # Train for now...
-# bach = MidiLSTM(0)
-# bach.load_weights("weights-composer-0-49-2.8121.hdf5")
-# bach.train(epochs=50, n=20)
-# result = bach.generate()
-# print(result)
-# MidiLSTM._to_midi_stream(result)
-
+# Uncomment to see in action (might have bad results :))
+'''
+bach = MidiLSTM(0)
+bach.load_weights("weights-composer-0-48-2.2657.hdf5")
+bach.train(epochs=100, n=10)
+result = bach.generate()
+print(result)
+MidiLSTM._to_midi_stream(result)
+'''
 # EOF

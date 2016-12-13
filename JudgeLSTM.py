@@ -184,8 +184,8 @@ class JudgeLSTM:
 
 
 # Uncomment for a free test :)
-test = JudgeLSTM()
-test.train(epochs=100, n=20)
+# test = JudgeLSTM()
+# test.train(epochs=100, n=20)
 # test.load_weights("weights-classify-70-0.3340.hdf5")
 # print(test.predict(music21.corpus.parse(music21.corpus.getComposer('beethoven')[8])))
 # test.fit_single(music21.corpus.parse(music21.corpus.getComposer('bach')[0]), 0, 2)

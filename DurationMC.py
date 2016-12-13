@@ -165,4 +165,5 @@ print("Updated probs and cdfs")
 
 chain = mc.generate(length=50)
 print(chain)
+mc.save("bach_duration.mc")
 '''
