@@ -9,20 +9,32 @@ The project tries to generate pleasent sounding pieces of music and its main tar
 * Plan A: write a program which creates automatically awesome music, get famous, get rich, don't have to work the entire life
 * Plan B: at least 5 credits.
 
-# Requirements
+## Requirements
 The code is built to run on Python 3.5.2 (or higher) and uses the following libraries:
 - creamas (Creative Multi Agent Systems library)
 - keras (Machine Learning library, depends in turn on Numpy, Theano, Scipy, etc)
 - h5py (Library to handle HDF5 files)
 - music21 (MIDI file and music parsing library)
 
-In certain circumstances also follwing libraries have to be installed:
+In certain circumstances also follwing libraries have to be installed (these should be automatically installed with keras):
 - numpy
 - scipy
 - theano
-- tensorflow
 
-# Files
+In addition, sometimes changing the definition file for keras is required (so it uses Theano and not TensorFlow).
+To achieve this, open `~/.keras/keras.json` (if it isn't there, you can create it).
+The contents of `keras.json` should like like so:
+```
+{
+    "image_dim_ordering": "tf",
+    "epsilon": 1e-07,
+    "floatx": "float32",
+    "backend": "tensorflow"
+}
+```
+
+
+## Files
 - Agents.py - Includes implentation of the different agents
 - NotesMC.py - Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
 - DurationMC.py - Markov Chain model that learns only durations from given MIDI streams
@@ -30,11 +42,11 @@ In certain circumstances also follwing libraries have to be installed:
 - JudgeLSTM.py - LSTM Neural Network that evaluates a sequence of notes\chords\rests
 - MG.py - Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
 
-# Installation
+## Installation
 
-# How to run the code
+## How to run the code
 
-# Markov Chain
+## Markov Chain
 Generate two Markov chains, one for the pitches, a second for the durations, analyzing the same songs but independent to each other.
 Merge the two chains into a set of Music21 notes.
 Put some repetitions (intro, chords, outro or similar) to the generated piece to let it sound a bit structurated.
