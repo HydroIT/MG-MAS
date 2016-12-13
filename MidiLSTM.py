@@ -66,7 +66,7 @@ class MidiLSTM:
         x_train = list()
         y_train = list()
         for sample in x_raw:  # Refactor training data to sequences of #timesteps
-            x, y = MidiLSTM._sample2sequences(sample)
+            x, y = MidiLSTM._sample2sequences(sample, self.timesteps)
             x_train += x
             y_train += y
         x, y = self._reshape_inputs(x_train, y_train)
