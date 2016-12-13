@@ -47,13 +47,16 @@ The contents of `keras.json` should like like so:
 
 ## How to run the code
 
-## Markov Chain
+
+
+## Explanations of the Code
+Each Class will be explained here.
+
+###Markov Chain (`mg_mas.py`)
 Generate two Markov chains, one for the pitches, a second for the durations, analyzing the same songs but independent to each other.
 Merge the two chains into a set of Music21 notes.
 Put some repetitions (intro, chords, outro or similar) to the generated piece to let it sound a bit structurated.
 Create several tracks, calculate the liklihood and export the piece with the hightest result.
-
-### Code
 The class consists of a dictionary, probabilities and cdfs for the pitch and the durations respectively.
 To seperate the tones (which might be chords, single tones and rests) and durations a quite nasty piece has to be used:
 ```python
@@ -97,14 +100,18 @@ while len(gen) < length and prev_note != MidiMarkovChain.EOL:
             gen.append(cdf_note[i][0][-1])  # Add only new addition to gen (no overlap)
             if cdf_note[i][0] in self.note_cdfs.keys():
                 prev_note = cdf_note[i][0]  # Update previous state
-        # same for durations
+        # same for duration
 ```
 
+**Try to put structure into the generation**
+One thought was to modify the creation a bit towards an actual rhythm. Simplest way would be to generate loops and let them appear more often (f.e. A-B-A-B-B-C). 
+But the dark side of putting that much control into the generation is, that the program cannot be that creative by itself. Therefore that idea was rejected soon. The last scraps of that idea are found in the function `getSongWithRepeatings(merged_notes)`.
 
-### Duration Markov chain
-Due to the problem that `MidliLSTM.py` didn't produce different lenghts of the tones we had to implemnt a workaround to get different lenghts.
-Basically it has the same logic as the "big brother" `NotesMC.py` - but less complexibility due the zipping and unzipping of the notes and duration can be ignored.
-The learn (and also others) function might be easier to understand without the in- and outwrapping:
+
+### Duration Markov chain (`DurationMC.py`)
+Due to the problem that `MidliLSTM.py` didn't produce different lengths of the tones we had to implement a workaround to get different length.
+Basically it has the same logic as the "big brother" `NotesMC.py` - but less complexity due the zipping and unzipping of the notes and duration can be ignored.
+The learn (and also others) function might be easier to understand without the in- and out-wrapping:
 ```python
 def learn(self, part, update=False, log=False):
     for i in range(len(part) - self.order - 1):
@@ -118,9 +125,27 @@ def learn(self, part, update=False, log=False):
             self.duration_dict[cur_state][next_state] += 1  # Exists :)
         if cur_state not in self.duration_updates:  # Add to update list
             self.duration_updates.append(cur_state)
-```            
+```           
 
-### Results
+###MIDI - LSTM (`MidiLSTM.py`)
+After the not satisfying results of the Markov Chains we thought it might be a good idea to generate the train an agent during using deep long short-term memory (LSTM) networks.
+
+The most important function is **PLEASE IDAN probably say what it does**
+```python
+ def train(self, epochs=100, n=20):
+	 x_raw, raw_length = MidiLSTM._get_notes_from_composer(self.composer_idx, n)  # Get data
+     x_train = list()
+     y_train = list()
+     for sample in x_raw:  # Refactor training data to sequences of #timesteps
+         x, y = MidiLSTM._sample2sequences(sample, self.timesteps)
+         x_train += x
+         y_train += y
+     x, y = self._reshape_inputs(x_train, y_train)
+     self.model.fit(x, y, nb_epoch=epochs, batch_size=self.batch_size, callbacks=self.callbacks_list)
+```
+
+###
+## Results
 The first outputs haven't conviced us that our generated music will find many sympathizers. The tracks may have some chords which sound familar but the whole creation has no passion - like creating tension and their dissolution. 
 Chords and rests are so unlikely to happen in the output caused of the few successive occurs in the input:
 if a more rests would exist they are combined to one longer one - therefore the Markov chain slightly ignores them.
