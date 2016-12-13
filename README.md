@@ -15,6 +15,7 @@ The code is built to run on Python 3.5.2 (or higher) and uses the following libr
 - NotesMC.py - Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
 - DurationMC.py - Markov Chain model that learns only durations from given MIDI streams
 - MidiLSTM.py - LSTM Neural Network that generates a sequence of notes\rests
+- JudgeLSTM.py - LSTM Neural Network that evaluates a sequence of notes\chords\rests
 - MG.py - Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
 
 # Installation
