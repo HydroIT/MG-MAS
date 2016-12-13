@@ -86,7 +86,10 @@ class MidiMarkovChain:
         dur = list(start_duration)
         while len(gen) < length and prev_note != MidiMarkovChain.EOL:
             rnd = random.random()
-            cdf_note, cdf_dur = self.note_cdfs[prev_note], self.duration_cdfs[prev_duration]
+            try:
+                cdf_note, cdf_dur = self.note_cdfs[prev_note], self.duration_cdfs[prev_duration]
+            except:  # Some error occured! Just use the previous cdf_note and cdf_dur
+                pass
             cp_note, cp_dur = cdf_note[0][1], cdf_dur[0][1]
             i = 0
             # Go through the cdf_note until the cumulative probability is higher than the random number 'rnd'.

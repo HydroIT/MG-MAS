@@ -190,7 +190,7 @@ class MarkovLSTMAgent(CreativeAgent):
             for n1, n2 in zip(notes, mem):
                 if n1 != n2:
                     score += 1
-            score /= len(artifact.obj)
+            score /= len(notes)
         n_artifacts = len(self.memory.artifacts)
         if n_artifacts > 0:
             return score / n_artifacts
