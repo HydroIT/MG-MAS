@@ -55,6 +55,7 @@ The projects consists of following classes which are explained in following sect
 - [`MidiLSTM.py`]() - LSTM Neural Network that generates a sequence of notes\rests
 - [`JudgeLSTM.py`]() - LSTM Neural Network that evaluates a sequence of notes\chords\rests
 - [`MG.py`]()- Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
+- [`Mas_memory.py`]()-   Stores  the MemoryList class and it's function which is used for novelty by Agents
 
 ###Markov Chain (`mg_mas.py`)
 Generate two Markov chains, one for the pitches, a second for the durations, analyzing the same songs but independent to each other.
@@ -106,9 +107,28 @@ while len(gen) < length and prev_note != MidiMarkovChain.EOL:
                 prev_note = cdf_note[i][0]  # Update previous state
         # same for duration
 ```
+**Likelihood ** function is used to calculate novelty of an artifact by an agent. It takes generated note and check whether they are in a markov transition state table, if they are not there they are penalized or optionally,  exception can be raised:
 
+```python
+score = 1.0
+if cur_state_notes not in self.note_dict:
+                    if penalize_missing_keys:  # Penalize if needed
+                        score *= missing_factor
+                    else:  # Exception if needed
+                        raise LookupError("Can't find '" + str(cur_state) + "' in Markov State Transition table (order " +
+                                          str(self.order) + ")")
+                elif next_state_notes not in self.note_dict[cur_state_notes]:
+                    if penalize_missing_keys:
+                        score *= missing_factor
+                    else:  # Exception if needed
+                        raise LookupError("Can't find '" + str(cur_state_notes) + " -> " + str(next_state_notes) +
+                                          "' in Markov State Transition table (order " + str(self.order) + ")")
+                else: # Psuedo-Likelihood
+                    score *= self.note_probs[cur_state_notes][next_state_notes] / max(self.note_probs[cur_state_notes].values())
+return score
+```
 **The try to put structure into the generation**
-One thought was to modify the creation a bit towards an actual rhythm. Simplest way would be to generate loops and let them appear more often (f.e. A-B-A-B-B-C). 
+One thought was to modify the creation a bit towards an actual rhythm. Simplest way would be to generate loops and let them appear more often (f.e. A-B-A-B-B-C).
 But the dark side of putting that much control into the generation is, that the program cannot be that creative by itself. Therefore that idea was rejected soon. The last scraps of that idea are found in the function `getSongWithRepeatings(merged_notes)`.
 
 
@@ -134,7 +154,7 @@ def learn(self, part, update=False, log=False):
 ###Long short-term memory generation - `MidiLSTM.py`
 After the not satisfying results of the Markov Chains we thought it might be a good idea to generate the train an agent during using deep long short-term memory (LSTM) networks.
 
-The whole calculation is time and/or resources-consuming, but differs on the given input. An average training with takes about 15-120 seconds each epoch. 
+The whole calculation is time and/or resources-consuming, but differs on the given input. An average training with takes about 15-120 seconds each epoch.
 
 The most important function is **PLEASE IDAN probably say what it does**
 ```python
@@ -154,7 +174,7 @@ The most important function is **PLEASE IDAN probably say what it does**
 An attempt at neural-network-based evaluation function for midi files.
 Final result gives a probability for each "genre" from the following list:
 
-	0. corpus.getComposer('bach') 
+	0. corpus.getComposer('bach')
 	1. corpus.getComposer('beethoven')
 	2. corpus.getComposer('essenFolksong')
 	3. corpus.getComposer('monteverdi')
@@ -174,12 +194,14 @@ This network does not take into account the length\duration, but can be extended
 **IDAN WHAT IS IMPORTANT?**
 
 ###`Agents.py`
-tba
+File consisting of our three major agent's classes: MarkovMidiAgent, MarkovLSTMAgent,  JudgeAgent and their function. MarkovMidiAgent generates music based on Markov Chain,  MarkovLSTMAgent generates music using neural networks to learn and JudgeAgent does not produce anything, just evaluate artifacts.
 
 ###List Memory `ListMemory.py`
 
 A helper class  for the `Agent` class, which provides a simple list memory in which all seen artifacts are stored into a list.
 It works as a FIFO-stack, if an artifact is already in the memory it will be ignored - if the memory is full but the new artifact has to be memorized, the oldest artifact will be removed.
+
+Agents use this ListMemory in a Novelty function to compute whether the artifact is new in comparison to artifacts that were already seen.
 
 
 ```python
@@ -196,22 +218,21 @@ def memorize(self, artifact):
 During teaching the computer to generate some lovely tunes we headed into bigger and smaller problems:
 
 - Lukas nearly died during a nasty sneezer - we already planned the final words ("please, that must be worth 5 credits)
-- Idan's bracket key stopped working. The programming was like a knight fights just with one hand. 
-- Yeah, and the generated music was not as good as hoped. 
+- Idan's bracket key stopped working. The programming was like a knight fights just with one hand.
+- Nikolaus brought some beers after two hours swearing in German language
+- Yeah, and the generated music was not as good as hoped.
 
 
- 
+
 
 ## Results
-Firstly, the first outputs haven't conviced us that our generated music will find many sympathizers. The tracks may have some chords which sound familar but the whole creation has no passion - like creating tension and their dissolution. 
+Firstly, the first outputs haven't conviced us that our generated music will find many sympathizers. The tracks may have some chords which sound familar but the whole creation has no passion - like creating tension and their dissolution.
 Chords and rests are so unlikely to happen in the output caused of the few successive occurs in the input:
 if a more rests would exist they are combined to one longer one - therefore the Markov chain slightly ignores them.
 
 So, songs without any feelings, no rests (also a chord is a small mircacle) - and alltogether sounds like a five year old child found a piano and hits into the keys.
 What we could do better - composing the songs starting with the basic chors (for exampe the often used I-V-vi-IV combination) and adding afterwards fitting notes and their durations.
-Not to use any bars (rhythmic beats) also minimizes the chance of getting a well-hearted song. 
+Not to use any bars (rhythmic beats) also minimizes the chance of getting a well-hearted song.
 But to introduce this (and of course many others) would cost quite a bit time and explode the workload.
 
-Second, as we figured out, the best value for the length of the Markov chain is around 6. 
-
-
+Second, as we figured out, the best value for the length of the Markov chain is around 6.
