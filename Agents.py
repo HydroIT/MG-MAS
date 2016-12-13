@@ -1,4 +1,5 @@
 from creamas.core import CreativeAgent, Environment, Simulation, Artifact
+from mg_mas import MidiMarkovChain
 
 # Produces solely based on markov chains
 class MarkovMidiAgent(CreativeAgent):

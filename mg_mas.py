@@ -128,6 +128,7 @@ class MidiMarkovChain:
                 if next_state[-1] == MidiMarkovChain.EOL:  # reached EOL?
                     break
                 csn = []
+
                 for cs in cur_state:
                     if not cs[0].isRest:
                         csn.append(cs[0].nameWithOctave)
@@ -135,7 +136,7 @@ class MidiMarkovChain:
                 nsn = []
                 for ns in next_state:
                     if not ns[0].isRest:
-                        nsn.append(cs[0].nameWithOctave)
+                        nsn.append(ns[0].nameWithOctave)
                 next_state_notes = tuple(nsn)
                 #print(cur_state_notes)
                 #print(self.note_dict)
@@ -224,7 +225,7 @@ class MidiMarkovChain:
         notesAndChords = list()
         start = 0
         for b in structer_borders:
-            while random.randint(0, 5) != 1: # maybe some loops
+            while random.randint(0, 2) != 1: # maybe some loops
                 notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
             else: # at least once
                 notesAndChords.extend(self.create_music21_notes(merged_notes, start, b))
@@ -240,7 +241,6 @@ class MidiMarkovChain:
         for note in notesAndChords:
             piano.append(note)
         stream.append(piano)
-
 
 
         stream = MidiMarkovChain.toStream(notesAndChords)
@@ -295,7 +295,7 @@ class MidiMarkovChain:
 
         part = [x for x in part if x.duration.quarterLength > 0]  # Remove 0-length notes
         cur_note_state, cur_dur_state = None, None
-        for i in range(len(part) - self.order):
+        for i in range(len(part) - self.order - 1):
             cur_note_state, cur_dur_state = notes_duration_tuples(part[i:i + self.order])
             next_note_state, next_dur_state = notes_duration_tuples(part[i + 1:i + self.order + 1])
             update_dict(self.note_dict, self.note_updates, cur_note_state, next_note_state)
@@ -408,7 +408,7 @@ best = list()
 lkhds = []
 max = 0.00000000000000000000000000000000000000000000000
 for i in range (0,9):
-    x = list(mc.generate_midi(length=30, save=False))
+    x = list(mc.generate_midi(length=80, save=False))
     likelihood = mc.likelihood(x)
     lkhds.append(likelihood)
     print(likelihood)
