@@ -222,6 +222,8 @@ During teaching the computer to generate some lovely tunes we headed into bigger
 - Nikolaus brought some beers after two hours swearing in German language
 - Yeah, and the generated music was not as good as hoped.
 
+The fool with a great tool is still a fool :)
+
 
 
 
