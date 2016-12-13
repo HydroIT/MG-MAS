@@ -78,20 +78,21 @@ class MidiLSTM:
         :param stream: music21 stream object
         :param epochs: number of epochs to train (default 2)
         """
-        sample = MidiLSTM._stream2inputs(stream)  # Convert to valid inputs
-        x, y = MidiLSTM._sample2sequences(sample)  # Convert to sequences
-        x, y = self._reshape_inputs(x, y)  # reshape for LSTM inputs
-        self.model.fit(x, y, nb_epoch=epochs)  # Fit data
+        sample = MidiLSTM.stream2inputs(stream)  # Convert to valid inputs
+        x, y = MidiLSTM._sample2sequences(sample, self.timesteps)  # Convert to sequences
+        if len(x) > 0 and len(y) > 0:  # Sanity check (need some input after conversion...)
+            x, y = self._reshape_inputs(x, y)  # reshape for LSTM inputs
+            self.model.fit(x, y, nb_epoch=epochs, verbose=0)  # Fit data
 
-    def generate(self, sequence_length=None, iterations=100):
+    def generate(self, sequence_length=None, iterations=200):
         """
         Generates a music sequence of given length (if None is given (default), creates a sequence of
-        length #timestamps. Number of iterations is how far to roll the information inside the LSTM
+        length 2*timestamps. Number of iterations is how far to roll the information inside the LSTM
         :return: List of notes (midi values)
         """
         if sequence_length is None:  # Use #timesteps if no sequence length is given
-            sequence_length = self.timesteps
-        if iterations - sequence_length <  sequence_length:
+            sequence_length = 2 * self.timesteps
+        if iterations - sequence_length < sequence_length:
             iterations += sequence_length  # Ensure we don't include the random initializations in the output
         # Generate random starting pattern
         pattern = np.random.randint(MidiLSTM.rest, MidiLSTM.last_note, size=self.timesteps).tolist()
@@ -148,7 +149,7 @@ class MidiLSTM:
         return MidiLSTM.EOS
 
     @staticmethod
-    def _stream2inputs(stream):
+    def stream2inputs(stream):
         """
         Converts a music21 stream to a list of midi values that matches the LSTM input
         """
@@ -173,7 +174,7 @@ class MidiLSTM:
             for f in files:
                 try:
                     mstream = music21.corpus.parse(f)  # Attempt to parse
-                    data_raw.append(MidiLSTM._stream2inputs(mstream))  # Convert to midi list and save
+                    data_raw.append(MidiLSTM.stream2inputs(mstream))  # Convert to midi list and save
                 except:
                     continue  # Skip invalid attempts
             return data_raw, len(data_raw)
@@ -181,7 +182,7 @@ class MidiLSTM:
             raise Exception("Composer index not found")
 
     @staticmethod
-    def _to_midi_stream(notes, durations=None):
+    def to_midi_stream(notes, durations=None):
         """
         Converts a list of notes (and optional durations) to a playable midi track.
         If no durations are given, all notes will have 1 quarter length.
@@ -199,17 +200,17 @@ class MidiLSTM:
             note.duration.quarterLength = d
             piano.append(note)
         stream.append(piano)
-        stream.show('midi')
+        # stream.show('midi')
         return stream
 
 
 # Uncomment to see in action (might have bad results :))
-'''
-bach = MidiLSTM(0)
-bach.load_weights("weights-composer-0-48-2.2657.hdf5")
-bach.train(epochs=100, n=10)
+# '''
+bach = MidiLSTM(7)
+bach.load_weights("weights\weights-composer-7-43-2.4315.hdf5")
+bach.train(epochs=100, n=4)
 result = bach.generate()
 print(result)
-MidiLSTM._to_midi_stream(result)
-'''
+MidiLSTM.to_midi_stream(result)
+# '''
 # EOF

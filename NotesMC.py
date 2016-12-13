@@ -1,6 +1,5 @@
 import music21
 import random
-import datetime
 import pickle
 
 
@@ -334,15 +333,5 @@ class MidiMarkovChain:
             piano.append(note)
         stream.append(piano)
         return stream
-
-    @staticmethod
-    def save_stream(stream):
-        """
-        Save stram into a file
-        :param stream: Music21 stream
-        """
-        fn = 'export-' + str(datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")) + '.mid'
-        stream.write('midi', fp=fn)
-        print("midi saved.")
 
 # EOF
