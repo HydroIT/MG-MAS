@@ -50,40 +50,33 @@ class DurationMarkovChain:
 
     
     def calculate_probability(self):
-        def calc_prob(dictionary, probs, updates):
-            diff_values = len(set(dictionary.keys()))
-            for key in updates:
-                if key not in probs:
-                    probs[key] = dict()
-                sub_dict = dictionary[key]
-                total = sum(sub_dict.values()) + diff_values * DurationMarkovChain.alpha
-                for w, c in sub_dict.items():
-                    probs[key][w] = (float(c) + DurationMarkovChain.alpha) / total
-
         self.duration_probs.clear()
-        calc_prob(self.duration_dict, self.duration_probs, self.duration_updates)
-        print("Done calculating durations probabilities...")
 
+        diff_values = len(set(self.duration_dict.keys()))
+        for key in self.duration_updates:
+            if key not in self.duration_probs:
+                self.duration_probs[key] = dict()
+            sub_dict = self.duration_dict[key]
+            total = sum(sub_dict.values()) + diff_values * DurationMarkovChain.alpha
+            for w, c in sub_dict.items():
+                self.duration_probs[key][w] = (float(c) + DurationMarkovChain.alpha) / total
+    
 
     def calculate_cdf(self):
-        def calc_cdf(dictionary, cdfs):
-            for pred, succ_probs in dictionary.items():
-                items = succ_probs.items()
-                # Sort the list by the second index in each item and reverse it from highest to lowest.
-                sorted_items = sorted(items, key=lambda x: x[1], reverse=True)
-                cdf = []
-                cumulative_sum = 0.0
-                for c, prob in sorted_items:
-                    cumulative_sum += prob
-                    cdf.append([c, cumulative_sum])
-                cdf[-1][1] = 1.0  # For possible rounding errors
-                cdfs[pred] = cdf
-        
-        # Create CDF
         self.duration_cdfs.clear()
-        calc_cdf(self.duration_probs, self.duration_cdfs)
-        print("Done calculating durations cdfs...")
-
+        
+        for pred, succ_probs in self.duration_probs.items():
+            items = succ_probs.items()
+            # Sort the list by the second index in each item and reverse it from highest to lowest.
+            sorted_items = sorted(items, key=lambda x: x[1], reverse=True)
+            cdf = []
+            cumulative_sum = 0.0
+            for c, prob in sorted_items:
+                cumulative_sum += prob
+                cdf.append([c, cumulative_sum])
+            cdf[-1][1] = 1.0  # For possible rounding errors
+            self.duration_cdfs[pred] = cdf
+    
 
     def easy_learn(self, stream):
         """
@@ -109,30 +102,47 @@ class DurationMarkovChain:
 
     def learn(self, part, update=False, log=False):
         """
-        Learn from list of notes
+        Learn durations from list of notes
         :param part:
         :param update:
         :param log:
         :return:
-        """
-        def update_dict(dictionary, updates, cur_state, next_state):
-            if cur_state not in dictionary:
-                dictionary[cur_state] = dict()
-            if next_state not in dictionary[cur_state]:
-                dictionary[cur_state][next_state] = 1
-            else:
-                dictionary[cur_state][next_state] += 1
-            if cur_state not in updates:
-                updates.append(cur_state)
+        """ 
 
-        cur_dur_state = None
+        cur_state = None
         for i in range(len(part) - self.order - 1):
-            cur_dur_state = tuple(part[i : i+self.order])
-            next_dur_state = tuple(part[i+1 : i + self.order + 1])
-            update_dict(self.duration_dict, self.duration_updates, cur_dur_state, next_dur_state)
+            cur_state = tuple(part[i : i+self.order])
+            next_state = tuple(part[i+1 : i + self.order + 1])
+            if cur_state not in self.duration_dict:
+                self.duration_dict[cur_state] = dict()
+            if next_state not in self.duration_dict[cur_state]:
+                self.duration_dict[cur_state][next_state] = 1
+            else:
+                self.duration_dict[cur_state][next_state] += 1
+            if cur_state not in self.duration_updates:
+                self.duration_updates.append(cur_state)
 
         if update:
             if log:
                 print("Learned " + ' '.join(part))
             self.calculate_probability()
             self.calculate_cdf()
+
+# if you want test it locally uncomment it!
+'''
+bachs = music21.corpus.getBachChorales()
+mc = DurationMarkovChain(music21.corpus.parse(bachs[0]), order=6)
+
+for i in range(1, int(len(bachs)/12)):  # 100 samples should be enough for now (studying both reverse and normal!)
+    print("Learning bach #" + str(i + 1))
+    mc.easy_learn(music21.corpus.parse(bachs[i]))
+
+print("Calculating probabilities...")
+mc.calculate_probability()
+print("Deriving CDF...")
+mc.calculate_cdf()
+print("Updated probs and cdfs")
+
+chain = mc.generate(length=50)
+print(chain)
+'''
