@@ -59,13 +59,13 @@ The winning artifact is then being taught to all agents (including the judge age
 ##  Files and Structure
 The projects consists of following classes which are explained in following section.
 
-- [`Agents.py`]() - Includes implentation of the different agents
-- [`NotesMC.py`]()- Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
-- [`DurationMC.py`]() Markov Chain model that learns only durations from given MIDI streams
-- [`MidiLSTM.py`]() - LSTM Neural Network that generates a sequence of notes\rests
-- [`JudgeLSTM.py`]() - LSTM Neural Network that evaluates a sequence of notes\chords\rests
+- [`Agents.py`](https://github.com/HydroIT/MG-MAS#agentspy) - Includes implentation of the different agents
+- [`NotesMC.py`](https://github.com/HydroIT/MG-MAS#markov-chain-mg_maspy)- Markov Chain model that learns notes and durations respectively, and imposes some structure on the generated output
+- [`DurationMC.py`](https://github.com/HydroIT/MG-MAS#duration-markov-chain---durationmcpy) Markov Chain model that learns only durations from given MIDI streams
+- [`MidiLSTM.py`]https://github.com/HydroIT/MG-MAS#long-short-term-memory-generation---midilstmpy() - LSTM Neural Network that generates a sequence of notes\rests
+- [`JudgeLSTM.py`](https://github.com/HydroIT/MG-MAS#long-short-term-memory-generation---midilstmpy) - LSTM Neural Network that evaluates a sequence of notes\chords\rests
 - [`MG.py`]()- Generates the agents, loads their respective weights\Markov Chains models, and runs the environment
-- [`Mas_memory.py`]()-   Stores  the MemoryList class and it's function which is used for novelty by Agents
+- [`List_Memory.py`](https://github.com/HydroIT/MG-MAS#list-memory-listmemorypy)-   Stores  the MemoryList class and it's function which is used for novelty by Agents
 
 ###Markov Chain (`mg_mas.py`)
 Generate two Markov chains, one for the pitches, a second for the durations, analyzing the same songs but independent to each other.
